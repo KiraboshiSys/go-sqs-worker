@@ -70,7 +70,7 @@ func main() {
 				continue
 			}
 		case <-successfulJobTicker.C:
-			msg, err := worker.NewMessage(ctx, job.FailingJobType.String(), job.SuccessfulJobPayload{
+			msg, err := worker.NewMessage(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
 				Message: "hello",
 			})
 			if err != nil {
