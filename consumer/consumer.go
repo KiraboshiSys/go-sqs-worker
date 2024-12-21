@@ -90,7 +90,7 @@ func (c *Consumer) Consume(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			m, cleanUp, err := c.sqsClient.Dequeue(ctx, c.config.DeadLetterQueueURL, c.config.WaitTimeSeconds)
+			m, cleanUp, err := c.sqsClient.Dequeue(ctx, c.config.WorkerQueueURL, c.config.WaitTimeSeconds)
 			if err != nil {
 				// continue processing if dequeue failed
 				fmt.Println("message dequeue failed", "err", err)
