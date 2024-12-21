@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqsLib "github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 
+	"github.com/mickamy/go-sqs-worker/sqs"
 	"github.com/mickamy/go-sqs-worker/worker"
 )
 
@@ -30,9 +30,9 @@ type Producer struct {
 }
 
 // NewProducer creates a new Producer
-func NewProducer(cfg Config, client *sqs.Client) *Producer {
+func NewProducer(cfg Config, client *sqsLib.Client) *Producer {
 	return &Producer{
-		client:         client,
+		client:         sqs.New(client),
 		workerQueueURL: cfg.WorkerQueueURL,
 	}
 }
@@ -51,11 +51,7 @@ func (p *Producer) Produce(ctx context.Context, msg worker.Message) error {
 		return fmt.Errorf("marshalling failed: %s", err)
 	}
 
-	_, err = p.client.SendMessage(ctx, &sqs.SendMessageInput{
-		MessageBody: aws.String(string(bytes)),
-		QueueUrl:    aws.String(p.workerQueueURL),
-	})
-	if err != nil {
+	if err := p.client.Enqueue(ctx, p.workerQueueURL, string(bytes)); err != nil {
 		return fmt.Errorf("enqueue failed: %w", err)
 	}
 
