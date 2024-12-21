@@ -25,7 +25,7 @@ type Config struct {
 
 // Producer is a producer of the worker queue
 type Producer struct {
-	client         *sqs.Client
+	client         sqs.Client
 	workerQueueURL string
 }
 

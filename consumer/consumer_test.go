@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
+	"github.com/mickamy/go-sqs-worker/internal/sqs/mock_sqs"
 	"github.com/mickamy/go-sqs-worker/job"
-	"github.com/mickamy/go-sqs-worker/sqs/mock_sqs"
 	"github.com/mickamy/go-sqs-worker/worker"
 )
 
@@ -58,8 +58,8 @@ func caller() string {
 }
 
 var (
-	testJobError = errors.New("test job execution failed")
-	cfg          = Config{
+	errTestJob = errors.New("test job execution failed")
+	cfg        = Config{
 		UseDLQ:             true,
 		WorkerQueueURL:     "http://localhost:4566/000000000000/worker-queue",
 		DeadLetterQueueURL: "https://localhost:4566/000000000000/dead-letter-queue",
@@ -171,6 +171,7 @@ func TestConsumer_process(t *testing.T) {
 
 			// act
 			sut, err := newConsumer(cfg, sqsMock, getJob, nil)
+			assert.NoError(t, err)
 			got := sut.process(context.Background(), string(bytes))
 
 			// assert
@@ -209,7 +210,7 @@ func TestConsumer_execute(t *testing.T) {
 				client.EXPECT().EnqueueWithDelay(gomock.Any(), gomock.Eq(cfg.WorkerQueueURL), gomock.Any(), gomock.Any()).Return(nil)
 				return testJob{
 					ExecuteFunc: func() error {
-						return testJobError
+						return errTestJob
 					},
 				}
 			},
@@ -225,7 +226,7 @@ func TestConsumer_execute(t *testing.T) {
 				client.EXPECT().EnqueueWithDelay(gomock.Any(), gomock.Eq(cfg.WorkerQueueURL), gomock.Any(), gomock.Any()).Return(fmt.Errorf("enqueue failed"))
 				return testJob{
 					ExecuteFunc: func() error {
-						return testJobError
+						return errTestJob
 					},
 				}
 			},
@@ -244,7 +245,7 @@ func TestConsumer_execute(t *testing.T) {
 				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(nil)
 				return testJob{
 					ExecuteFunc: func() error {
-						return testJobError
+						return errTestJob
 					},
 				}
 			},
@@ -263,7 +264,7 @@ func TestConsumer_execute(t *testing.T) {
 				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(fmt.Errorf("DLQ enqueue failed"))
 				return testJob{
 					ExecuteFunc: func() error {
-						return testJobError
+						return errTestJob
 					},
 				}
 			},
