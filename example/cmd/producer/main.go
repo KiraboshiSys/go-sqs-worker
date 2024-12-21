@@ -37,12 +37,36 @@ func main() {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("shutting down scheduler simulator")
+			logger.Info("shutting down producer")
 			return
-		case <-ticker.C:
-			logger.Info("ticker ticked")
-			{
-				msg, err := worker.NewMessage(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
+		case t := <-ticker.C:
+			switch t.Second() % 3 {
+			case 0:
+				msg, err := worker.NewMessage(ctx, job.FailingJobType.String(), job.FailingJobPayload{
+					Message: "hello failing job",
+				})
+				if err != nil {
+					logger.Error("failed to create failing job message", "error", err)
+					continue
+				}
+				if err := p.Produce(ctx, msg); err != nil {
+					logger.Error("failed to produce failing job", "error", err)
+					continue
+				}
+			case 1:
+				msg, err := worker.NewMessage(ctx, job.FlakyJobType.String(), job.FlakyJobPayload{
+					Message: "hello flaky job",
+				})
+				if err != nil {
+					logger.Error("failed to create flaky job message", "error", err)
+					continue
+				}
+				if err := p.Produce(ctx, msg); err != nil {
+					logger.Error("failed to produce flaky job", "error", err)
+					continue
+				}
+			case 2:
+				msg, err := worker.NewMessage(ctx, job.FailingJobType.String(), job.SuccessfulJobPayload{
 					Message: "hello",
 				})
 				if err != nil {
@@ -53,9 +77,7 @@ func main() {
 					logger.Error("failed to produce successful job", "error", err)
 					continue
 				}
-				logger.Info("produced successful job")
 			}
-			logger.Info("checking schedules...")
 		}
 	}
 }
