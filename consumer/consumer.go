@@ -57,23 +57,27 @@ func newConfig(c Config) Config {
 }
 
 // OnProcessFunc is a function to handle the output of the processing
-type OnProcessFunc func(output JobProcessingOutput)
+type OnProcessFunc func(output ProcessingOutput)
 
 type Consumer struct {
 	config      Config
-	sqsClient   *sqs.Client
+	sqsClient   sqs.Client
 	getJobFunc  job.GetFunc
 	onErrorFunc OnProcessFunc
 }
 
 // New creates a new Consumer
 func New(config Config, client *sqsLib.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
+	return newConsumer(config, sqs.New(client), getJobFunc, onProcessFunc)
+}
+
+func newConsumer(config Config, client sqs.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
 	if getJobFunc == nil {
 		return nil, fmt.Errorf("getJobFunc is required")
 	}
 	return &Consumer{
 		config:      newConfig(config),
-		sqsClient:   sqs.New(client),
+		sqsClient:   client,
 		getJobFunc:  getJobFunc,
 		onErrorFunc: onProcessFunc,
 	}, nil
@@ -110,48 +114,64 @@ func (c *Consumer) Consume(ctx context.Context) {
 }
 
 // process processes a message
-func (c *Consumer) process(ctx context.Context, s string) (out JobProcessingOutput) {
+func (c *Consumer) process(ctx context.Context, s string) (out ProcessingOutput) {
 	defer func() {
 		if r := recover(); r != nil {
 			out = fatalJobProcessingOutput(fmt.Errorf("panic occurred while processing message: %v", r))
 		}
 	}()
 
-	msg, err := parseMessage(ctx, s)
+	msg, err := parse(ctx, s)
 	if err != nil {
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
-			return fatalJobProcessingOutput(fmt.Errorf("failed to unmarshal message and send to DLQ: %w", dlqErr))
+			return fatalJobProcessingOutput(
+				fmt.Errorf("failed to unmarshal message and send to DLQ: %w", dlqErr),
+			).WithMessage(msg)
 		}
-		return nonFatalJobProcessingOutput(fmt.Errorf("failed to unmarshal message; sent to DLQ successfully: %s", err))
+		return nonFatalJobProcessingOutput(
+			fmt.Errorf("failed to unmarshal message; sent to DLQ successfully: %s", err),
+		).WithMessage(msg)
 	}
 
 	j, err := c.getJobFunc(msg.Type)
 	if err != nil {
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
-			return fatalJobProcessingOutput(fmt.Errorf("failed to get job and send to DLQ. id=[%s], Type=[%s], Caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, dlqErr))
+			return fatalJobProcessingOutput(
+				fmt.Errorf("failed to get job and send to DLQ. id=[%s], Type=[%s], Caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, dlqErr),
+			).WithMessage(msg)
 		}
-		return nonFatalJobProcessingOutput(fmt.Errorf("failed to get job; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err))
+		return nonFatalJobProcessingOutput(
+			fmt.Errorf("failed to get job; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
+		).WithMessage(msg)
 	}
 
-	return c.executeJob(ctx, j, msg)
+	return c.execute(ctx, j, msg)
 }
 
-// executeJob executes a job and returns the JobProcessingOutput
-func (c *Consumer) executeJob(ctx context.Context, j job.Job, msg worker.Message) JobProcessingOutput {
+// execute executes a job and returns the JobProcessingOutput
+func (c *Consumer) execute(ctx context.Context, j job.Job, msg worker.Message) ProcessingOutput {
 	if err := j.Execute(ctx, msg.Payload); err != nil {
 		if msg.RetryCount < c.config.MaxRetry {
 			if retryErr := c.retry(ctx, msg); retryErr != nil {
-				return fatalJobProcessingOutput(fmt.Errorf("failed to execute job and retry. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, retryErr))
+				return fatalJobProcessingOutput(
+					fmt.Errorf("failed to execute job and retry. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, retryErr),
+				).WithMessage(msg)
 			}
-			return nonFatalJobProcessingOutput(fmt.Errorf("failed to execute job; retryied successfully . id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err))
+			return nonFatalJobProcessingOutput(
+				fmt.Errorf("failed to execute job; retried successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
+			).WithMessage(msg)
 		}
 
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
-			return fatalJobProcessingOutput(fmt.Errorf("max retry attempts reached; failed to send to DLQ. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, dlqErr))
+			return fatalJobProcessingOutput(
+				fmt.Errorf("max retry attempts reached; failed to send to DLQ. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, dlqErr),
+			).WithMessage(msg)
 		}
-		return nonFatalJobProcessingOutput(fmt.Errorf("max retry attempts exceeded; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err))
+		return nonFatalJobProcessingOutput(
+			fmt.Errorf("max retry attempts exceeded; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
+		).WithMessage(msg)
 	}
-	return JobProcessingOutput{
+	return ProcessingOutput{
 		Message: msg,
 	}
 }
@@ -190,8 +210,8 @@ func (c *Consumer) calculateBackoff(retries int) int {
 	return int(math.Min(delay, c.config.MaxDelay))
 }
 
-// parseMessage parses a message to a worker.Message
-func parseMessage(ctx context.Context, s string) (worker.Message, error) {
+// parse parses a message to a worker.Message
+func parse(ctx context.Context, s string) (worker.Message, error) {
 	var msg worker.Message
 	if err := json.Unmarshal([]byte(s), &msg); err != nil {
 		return worker.Message{}, fmt.Errorf("failed to unmarshalling message: %w", err)
