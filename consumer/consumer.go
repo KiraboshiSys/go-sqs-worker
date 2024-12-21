@@ -108,7 +108,7 @@ func (c *Consumer) Consume(ctx context.Context) {
 				continue
 			}
 
-			output := c.process(ctx, *m)
+			output := c.Process(ctx, *m)
 			if c.OnProcessFunc != nil {
 				c.OnProcessFunc(output)
 			}
@@ -116,8 +116,8 @@ func (c *Consumer) Consume(ctx context.Context) {
 	}
 }
 
-// process processes a message
-func (c *Consumer) process(ctx context.Context, s string) (out ProcessingOutput) {
+// Process processes a message
+func (c *Consumer) Process(ctx context.Context, s string) (out ProcessingOutput) {
 	defer func() {
 		if r := recover(); r != nil {
 			out = fatalJobProcessingOutput(fmt.Errorf("panic occurred while processing message: %v", r))
