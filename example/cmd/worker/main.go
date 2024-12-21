@@ -9,14 +9,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/mickamy/go-sqs-worker/consumer"
 	jobLib "github.com/mickamy/go-sqs-worker/job"
 
 	"github.com/mickamy/go-sqs-worker-example/internal/job"
+	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
 	"github.com/mickamy/go-sqs-worker-example/internal/lib/logger"
 )
 
@@ -37,7 +34,7 @@ func main() {
 		return job.Get(s, jobs)
 	}
 
-	c, err := consumer.New(cfg, newSQSClient(ctx), getJobFunc, func(output consumer.ProcessingOutput) {
+	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), getJobFunc, func(output consumer.ProcessingOutput) {
 		if fatalErr := output.FatalError(); fatalErr != nil {
 			logger.Error("fatal error occurred", "error", fatalErr, "message", output.Message)
 		} else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {
@@ -74,18 +71,4 @@ func main() {
 
 	wg.Wait()
 	logger.Info("all workers have finished, shutting down")
-}
-
-func newSQSClient(ctx context.Context) *sqs.Client {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		panic(fmt.Errorf("failed to load config: %w", err))
-	}
-
-	cfg.Credentials = credentials.NewStaticCredentialsProvider("localstack", "localstack", "")
-	cfg.Region = "ap-northeast-1"
-
-	return sqs.NewFromConfig(cfg, func(o *sqs.Options) {
-		o.BaseEndpoint = aws.String("http://localstack:4566")
-	})
 }
