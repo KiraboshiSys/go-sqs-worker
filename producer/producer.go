@@ -29,8 +29,8 @@ type Producer struct {
 	workerQueueURL string
 }
 
-// NewProducer creates a new Producer
-func NewProducer(cfg Config, client *sqsLib.Client) *Producer {
+// New creates a new Producer
+func New(cfg Config, client *sqsLib.Client) *Producer {
 	return &Producer{
 		client:         sqs.New(client),
 		workerQueueURL: cfg.WorkerQueueURL,
