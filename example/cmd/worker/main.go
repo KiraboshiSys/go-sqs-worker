@@ -23,8 +23,8 @@ func main() {
 
 	cfg := consumer.Config{
 		UseDLQ:             true,
-		WorkerQueueURL:     "https://sqs.ap-northeast-1.amazonaws.com/000000000000/worker-queue",
-		DeadLetterQueueURL: "https://sqs.ap-northeast-1.amazonaws.com/000000000000/dead-letter-queue",
+		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 	}
 
 	jobs := job.Jobs{

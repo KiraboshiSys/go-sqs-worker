@@ -28,11 +28,11 @@ func main() {
 		cancel()
 	}()
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	p := producer.New(producer.Config{
-		WorkerQueueURL: "https://sqs.ap-northeast-1.amazonaws.com/000000000000/worker-queue",
+		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 	}, aws.NewSQSClient(ctx))
 	for {
 		select {
