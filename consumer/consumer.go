@@ -96,18 +96,15 @@ func (c *Consumer) Consume(ctx context.Context) {
 			m, cleanUp, err := c.sqsClient.Dequeue(ctx, c.config.WorkerQueueURL, c.config.WaitTimeSeconds)
 			if err != nil {
 				// continue processing if dequeue failed
-				fmt.Println("message dequeue failed", "err", err)
 				continue
 			}
 			if m == nil {
 				// continue processing if message is empty
-				fmt.Println("received nil message; skipping")
 				continue
 			}
 
 			// clean up before processing to avoid duplicate processing
 			if err := cleanUp(ctx); err != nil {
-				fmt.Println("message clean up failed", "error", err)
 				continue
 			}
 
