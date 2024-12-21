@@ -6,6 +6,10 @@ import (
 	"github.com/mickamy/go-sqs-worker-example/internal/lib/logger"
 )
 
+type SuccessfulJobPayload struct {
+	Message string `json:"message"`
+}
+
 type SuccessfulJob struct {
 }
 

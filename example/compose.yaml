@@ -1,9 +1,24 @@
 services:
 
+  producer:
+    build:
+      context: .
+    command: go run /src/cmd/producer/main.go
+    volumes:
+      - .:/src:cached
+      - go:/go
+    networks:
+      - default
+
   worker:
     build:
       context: .
     command: go run /src/cmd/worker/main.go
+    volumes:
+      - .:/src:cached
+      - go:/go
+    environment:
+      GOMAXPROCS: 2
     networks:
       - default
 
@@ -11,8 +26,14 @@ services:
     image: localstack/localstack
     ports:
       - "4566:4566"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init-aws.sh
     environment:
       - SERVICES=sqs
       - DEBUG=0
+      - LS_LOG=error
     networks:
       - default
+
+volumes:
+  go:
