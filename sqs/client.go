@@ -8,21 +8,37 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
-type Client struct {
-	client *sqs.Client
+// CleanUp is a function to delete the message from SQS
+type CleanUp func(context.Context) error
+
+var (
+	noop CleanUp = func(context.Context) error { return nil }
+)
+
+// Client is a wrapper of [sqs.Client]
+//
+//go:generate mockgen -source=$GOFILE -destination=./mock_$GOPACKAGE/mock_$GOFILE -package=mock_$GOPACKAGE
+type Client interface {
+	Enqueue(ctx context.Context, queueURL, message string) error
+	EnqueueWithDelay(ctx context.Context, queueURL, message string, delaySeconds int) error
+	Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, CleanUp, error)
 }
 
-func New(client *sqs.Client) *Client {
-	return &Client{
-		client: client,
+func New(c *sqs.Client) Client {
+	return &client{
+		client: c,
 	}
 }
 
-func (c *Client) Enqueue(ctx context.Context, queueURL, message string) error {
+type client struct {
+	client *sqs.Client
+}
+
+func (c *client) Enqueue(ctx context.Context, queueURL, message string) error {
 	return c.EnqueueWithDelay(ctx, queueURL, message, 0)
 }
 
-func (c *Client) EnqueueWithDelay(ctx context.Context, queueURL, message string, delaySeconds int) error {
+func (c *client) EnqueueWithDelay(ctx context.Context, queueURL, message string, delaySeconds int) error {
 	_, err := c.client.SendMessage(ctx, &sqs.SendMessageInput{
 		MessageBody:  aws.String(message),
 		QueueUrl:     aws.String(queueURL),
@@ -35,13 +51,7 @@ func (c *Client) EnqueueWithDelay(ctx context.Context, queueURL, message string,
 	return nil
 }
 
-type CleanUp func(context.Context) error
-
-var (
-	noop CleanUp = func(context.Context) error { return nil }
-)
-
-func (c *Client) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, CleanUp, error) {
+func (c *client) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, CleanUp, error) {
 	output, err := c.client.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(queueURL),
 		MaxNumberOfMessages: 1,
