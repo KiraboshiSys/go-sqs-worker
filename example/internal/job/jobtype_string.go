@@ -9,13 +9,15 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[first-0]
-	_ = x[SuccessfulJobType-1]
-	_ = x[last-2]
+	_ = x[FailingJobType-1]
+	_ = x[FlakyJobType-2]
+	_ = x[SuccessfulJobType-3]
+	_ = x[last-4]
 }
 
-const _jobType_name = "firstExampleJobTypelast"
+const _jobType_name = "firstFailingJobTypeFlakyJobTypeSuccessfulJobTypelast"
 
-var _jobType_index = [...]uint8{0, 5, 19, 23}
+var _jobType_index = [...]uint8{0, 5, 19, 31, 48, 52}
 
 func (i jobType) String() string {
 	if i < 0 || i >= jobType(len(_jobType_index)-1) {

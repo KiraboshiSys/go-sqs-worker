@@ -61,12 +61,12 @@ var (
 	errTestJob = errors.New("test job execution failed")
 	cfg        = Config{
 		UseDLQ:             true,
-		WorkerQueueURL:     "http://localhost:4566/000000000000/worker-queue",
-		DeadLetterQueueURL: "https://localhost:4566/000000000000/dead-letter-queue",
+		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 	}
 )
 
-func TestConsumer_process(t *testing.T) {
+func TestConsumer_Process(t *testing.T) {
 	t.Parallel()
 
 	tcs := []struct {
@@ -172,7 +172,7 @@ func TestConsumer_process(t *testing.T) {
 			// act
 			sut, err := newConsumer(cfg, sqsMock, getJob, nil)
 			assert.NoError(t, err)
-			got := sut.process(context.Background(), string(bytes))
+			got := sut.Process(context.Background(), string(bytes))
 
 			// assert
 			tc.assert(t, got)

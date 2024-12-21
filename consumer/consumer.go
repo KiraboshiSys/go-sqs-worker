@@ -60,10 +60,10 @@ func newConfig(c Config) Config {
 type OnProcessFunc func(output ProcessingOutput)
 
 type Consumer struct {
-	config      Config
-	sqsClient   sqs.Client
-	getJobFunc  job.GetFunc
-	onErrorFunc OnProcessFunc
+	config        Config
+	sqsClient     sqs.Client
+	getJobFunc    job.GetFunc
+	OnProcessFunc OnProcessFunc
 }
 
 // New creates a new Consumer
@@ -76,10 +76,10 @@ func newConsumer(config Config, client sqs.Client, getJobFunc job.GetFunc, onPro
 		return nil, fmt.Errorf("getJobFunc is required")
 	}
 	return &Consumer{
-		config:      newConfig(config),
-		sqsClient:   client,
-		getJobFunc:  getJobFunc,
-		onErrorFunc: onProcessFunc,
+		config:        newConfig(config),
+		sqsClient:     client,
+		getJobFunc:    getJobFunc,
+		OnProcessFunc: onProcessFunc,
 	}, nil
 }
 
@@ -93,28 +93,31 @@ func (c *Consumer) Consume(ctx context.Context) {
 			m, cleanUp, err := c.sqsClient.Dequeue(ctx, c.config.DeadLetterQueueURL, c.config.WaitTimeSeconds)
 			if err != nil {
 				// continue processing if dequeue failed
+				fmt.Println("message dequeue failed", "err", err)
 				continue
 			}
 			if m == nil {
 				// continue processing if message is empty
+				fmt.Println("received nil message; skipping")
 				continue
 			}
 
 			// clean up before processing to avoid duplicate processing
 			if err := cleanUp(ctx); err != nil {
+				fmt.Println("message clean up failed", "error", err)
 				continue
 			}
 
-			output := c.process(ctx, *m)
-			if output.Error != nil && c.onErrorFunc != nil {
-				c.onErrorFunc(output)
+			output := c.Process(ctx, *m)
+			if c.OnProcessFunc != nil {
+				c.OnProcessFunc(output)
 			}
 		}
 	}
 }
 
-// process processes a message
-func (c *Consumer) process(ctx context.Context, s string) (out ProcessingOutput) {
+// Process processes a message
+func (c *Consumer) Process(ctx context.Context, s string) (out ProcessingOutput) {
 	defer func() {
 		if r := recover(); r != nil {
 			out = fatalJobProcessingOutput(fmt.Errorf("panic occurred while processing message: %v", r))

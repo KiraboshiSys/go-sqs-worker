@@ -8,6 +8,8 @@ import (
 )
 
 type Jobs struct {
+	FailingJob
+	FlakyJob
 	SuccessfulJob
 }
 
@@ -16,6 +18,8 @@ type jobType int
 
 const (
 	first jobType = iota
+	FailingJobType
+	FlakyJobType
 	SuccessfulJobType
 	last
 )
@@ -34,6 +38,10 @@ func Get(s string, jobs Jobs) (job.Job, error) {
 	switch types[idx] {
 	case first, last:
 		return nil, fmt.Errorf("type `first` and `last` should not be used")
+	case FailingJobType:
+		return jobs.FailingJob, nil
+	case FlakyJobType:
+		return jobs.FlakyJob, nil
 	case SuccessfulJobType:
 		return jobs.SuccessfulJob, nil
 	}

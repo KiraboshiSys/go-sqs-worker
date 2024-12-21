@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.48
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.37.3
-	github.com/mickamy/go-sqs-worker v0.0.2
+	github.com/mickamy/go-sqs-worker v0.0.4
 )
 
 require (
