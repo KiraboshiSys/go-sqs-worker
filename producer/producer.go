@@ -9,7 +9,7 @@ import (
 	sqsLib "github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 
-	"github.com/mickamy/go-sqs-worker/sqs"
+	"github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/worker"
 )
 
