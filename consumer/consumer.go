@@ -53,6 +53,9 @@ func newConfig(c Config) Config {
 	if c.MaxDelay == 0 {
 		c.MaxDelay = 3600
 	}
+	if c.WaitTimeSeconds == 0 {
+		c.WaitTimeSeconds = 20
+	}
 	return c
 }
 
