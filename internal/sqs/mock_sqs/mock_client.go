@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	sqs "github.com/mickamy/go-sqs-worker/sqs"
+	sqs "github.com/mickamy/go-sqs-worker/internal/sqs"
 	gomock "go.uber.org/mock/gomock"
 )
 

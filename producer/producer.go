@@ -9,7 +9,7 @@ import (
 	sqsLib "github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 
-	"github.com/mickamy/go-sqs-worker/sqs"
+	"github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/worker"
 )
 
@@ -25,7 +25,7 @@ type Config struct {
 
 // Producer is a producer of the worker queue
 type Producer struct {
-	client         *sqs.Client
+	client         sqs.Client
 	workerQueueURL string
 }
 
