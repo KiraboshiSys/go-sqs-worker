@@ -41,9 +41,10 @@ import (
 func main() {
    ctx := context.Background()
 
-   p := producer.New(producer.Config{
+   cfg := producer.Config{
       WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
-   }, aws.NewSQSClient())
+   }
+   p := producer.New(cfg, aws.NewSQSClient())
 
    msg, err := worker.NewMessage(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
       Message: "hello",
@@ -79,10 +80,21 @@ import (
 func main() {
    ctx := context.Background()
 
-   c, err := consumer.New(consumer.Config{
+   cfg := consumer.Config{
+      UseDLQ:             true,
       WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
-      DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dlq",
-   }, aws.NewSQSClient(), job.GetJobHandler)
+      DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
+   }
+
+   c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler, func(output consumer.ProcessingOutput) {
+      if fatalErr := output.FatalError(); fatalErr != nil {
+         fmt.Println("fatal error occurred", "error", fatalErr, "message", output.Message)
+      } else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {
+         fmt.Println("non-fatal error occurred", "error", nonFatalErr, "message", output.Message)
+      } else {
+         fmt.Println("message processed successfully", "message", output.Message)
+      }
+   })
 
    if err != nil {
       fmt.Println("failed to create consumer", "error", err)
@@ -99,19 +111,9 @@ func main() {
 
 The repository includes an example project under the example/ directory. To run the example:
 
-1. Start LocalStack using Docker Compose:
-    ```bash
-    docker compose -f example/compose.yaml up
-    ```
-
-2. Run the producer:
-    ```bash
-    go run example/cmd/producer/main.go
-    ```
-3. Run the worker:
-    ```bash
-    go run example/cmd/worker/main.go
-    ```
+```bash
+docker compose up
+```
 
 ## Configuration
 The library uses the following configuration options:
