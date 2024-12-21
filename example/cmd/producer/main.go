@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/mickamy/go-sqs-worker-example/internal/job"
 	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
-	"github.com/mickamy/go-sqs-worker-example/internal/lib/logger"
 )
 
 func main() {
@@ -24,12 +24,17 @@ func main() {
 
 	go func() {
 		<-signalChan
-		logger.Info("received signal, shutting down")
+		fmt.Println("received signal, shutting down")
 		cancel()
 	}()
 
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	failingJobTicker := time.NewTicker(3 * time.Second)
+	flakyJobTicker := time.NewTicker(5 * time.Second)
+	successfulJobTicker := time.NewTicker(7 * time.Second)
+
+	defer failingJobTicker.Stop()
+	defer flakyJobTicker.Stop()
+	defer successfulJobTicker.Stop()
 
 	p := producer.New(producer.Config{
 		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
@@ -37,46 +42,44 @@ func main() {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("shutting down producer")
+			fmt.Println("shutting down producer")
 			return
-		case t := <-ticker.C:
-			switch t.Second() % 3 {
-			case 0:
-				msg, err := worker.NewMessage(ctx, job.FailingJobType.String(), job.FailingJobPayload{
-					Message: "hello failing job",
-				})
-				if err != nil {
-					logger.Error("failed to create failing job message", "error", err)
-					continue
-				}
-				if err := p.Produce(ctx, msg); err != nil {
-					logger.Error("failed to produce failing job", "error", err)
-					continue
-				}
-			case 1:
-				msg, err := worker.NewMessage(ctx, job.FlakyJobType.String(), job.FlakyJobPayload{
-					Message: "hello flaky job",
-				})
-				if err != nil {
-					logger.Error("failed to create flaky job message", "error", err)
-					continue
-				}
-				if err := p.Produce(ctx, msg); err != nil {
-					logger.Error("failed to produce flaky job", "error", err)
-					continue
-				}
-			case 2:
-				msg, err := worker.NewMessage(ctx, job.FailingJobType.String(), job.SuccessfulJobPayload{
-					Message: "hello",
-				})
-				if err != nil {
-					logger.Error("failed to create successful job message", "error", err)
-					continue
-				}
-				if err := p.Produce(ctx, msg); err != nil {
-					logger.Error("failed to produce successful job", "error", err)
-					continue
-				}
+		case <-failingJobTicker.C:
+			msg, err := worker.NewMessage(ctx, job.FailingJobType.String(), job.FailingJobPayload{
+				Message: "hello failing job",
+			})
+			if err != nil {
+				fmt.Println("failed to create failing job message", "error", err)
+				continue
+			}
+			if err := p.Produce(ctx, msg); err != nil {
+				fmt.Println("failed to produce failing job", "error", err)
+				continue
+			}
+
+		case <-flakyJobTicker.C:
+			msg, err := worker.NewMessage(ctx, job.FlakyJobType.String(), job.FlakyJobPayload{
+				Message: "hello flaky job",
+			})
+			if err != nil {
+				fmt.Println("failed to create flaky job message", "error", err)
+				continue
+			}
+			if err := p.Produce(ctx, msg); err != nil {
+				fmt.Println("failed to produce flaky job", "error", err)
+				continue
+			}
+		case <-successfulJobTicker.C:
+			msg, err := worker.NewMessage(ctx, job.FailingJobType.String(), job.SuccessfulJobPayload{
+				Message: "hello",
+			})
+			if err != nil {
+				fmt.Println("failed to create successful job message", "error", err)
+				continue
+			}
+			if err := p.Produce(ctx, msg); err != nil {
+				fmt.Println("failed to produce successful job", "error", err)
+				continue
 			}
 		}
 	}

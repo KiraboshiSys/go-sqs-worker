@@ -14,7 +14,6 @@ import (
 
 	"github.com/mickamy/go-sqs-worker-example/internal/job"
 	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
-	"github.com/mickamy/go-sqs-worker-example/internal/lib/logger"
 )
 
 func main() {
@@ -36,15 +35,15 @@ func main() {
 
 	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), getJobFunc, func(output consumer.ProcessingOutput) {
 		if fatalErr := output.FatalError(); fatalErr != nil {
-			logger.Error("fatal error occurred", "error", fatalErr, "message", output.Message)
+			fmt.Println("fatal error occurred", "error", fatalErr, "message", output.Message)
 		} else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {
-			logger.Error("non-fatal error occurred", "error", nonFatalErr, "message", output.Message)
+			fmt.Println("non-fatal error occurred", "error", nonFatalErr, "message", output.Message)
 		} else {
-			logger.Info("job processed successfully", "message", output.Message)
+			fmt.Println("message processed successfully", "message", output.Message)
 		}
 	})
 	if err != nil {
-		logger.Error("failed to create consumer", "error", err)
+		fmt.Println("failed to create consumer", "error", err)
 		os.Exit(1)
 		return
 	}
@@ -56,9 +55,9 @@ func main() {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			logger.Info(fmt.Sprintf("worker %d starting", workerID))
+			fmt.Println("worker", workerID, "starting")
 			c.Consume(ctx)
-			logger.Info(fmt.Sprintf("worker %d finished", workerID))
+			fmt.Println("worker", workerID, "finished")
 		}(i)
 	}
 
@@ -66,9 +65,9 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigChan
-	logger.Info("shutdown signal received, cancelling context")
+	fmt.Println("shutdown signal received, cancelling context")
 	cancel()
 
 	wg.Wait()
-	logger.Info("all workers have finished, shutting down")
+	fmt.Println("all workers have finished, shutting down")
 }
