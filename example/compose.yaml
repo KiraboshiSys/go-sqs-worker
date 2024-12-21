@@ -1,0 +1,18 @@
+services:
+
+  worker:
+    build:
+      context: .
+    command: go run /src/cmd/worker/main.go
+    networks:
+      - default
+
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs
+      - DEBUG=0
+    networks:
+      - default
