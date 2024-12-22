@@ -36,9 +36,16 @@ func main() {
 	defer flakyJobTicker.Stop()
 	defer successfulJobTicker.Stop()
 
-	p := producer.New(producer.Config{
+	cfg := producer.Config{
 		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
-	}, aws.NewSQSClient(ctx))
+	}
+
+	p, err := producer.New(cfg, aws.NewSQSClient(ctx))
+	if err != nil {
+		fmt.Println("failed to create producer", "error", err)
+		return
+	}
+
 	for {
 		select {
 		case <-ctx.Done():

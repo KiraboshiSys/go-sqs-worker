@@ -41,10 +41,15 @@ import (
 func main() {
    ctx := context.Background()
 
-   cfg := producer.Config{
-      WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
-   }
-   p := producer.New(cfg, aws.NewSQSClient())
+	cfg := producer.Config{
+		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+	}
+
+	p, err := producer.New(cfg, aws.NewSQSClient(ctx))
+	if err != nil {
+		fmt.Println("failed to create producer", "error", err)
+		return
+	}
 
    msg, err := worker.NewMessage(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
       Message: "hello",

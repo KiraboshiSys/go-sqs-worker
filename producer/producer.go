@@ -30,11 +30,14 @@ type Producer struct {
 }
 
 // New creates a new Producer
-func New(cfg Config, client *sqsLib.Client) *Producer {
+func New(cfg Config, client *sqsLib.Client) (*Producer, error) {
+	if cfg.WorkerQueueURL == "" {
+		return nil, fmt.Errorf("WorkerQueueURL is required")
+	}
 	return &Producer{
 		client:         sqs.New(client),
 		workerQueueURL: cfg.WorkerQueueURL,
-	}
+	}, nil
 }
 
 func (p *Producer) Produce(ctx context.Context, msg worker.Message) error {
