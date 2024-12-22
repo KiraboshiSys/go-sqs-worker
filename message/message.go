@@ -1,3 +1,37 @@
+/*
+Package message provides structures and functions for handling messages in the job processing system.
+
+The Message struct represents a job message with fields for ID, type, payload, retry count, caller information, and creation time.
+The package also includes functions for creating new messages, retrying messages, and setting caller information.
+
+Types:
+
+- Message: Represents a job message with fields for ID, type, payload, retry count, caller information, and creation time.
+- New: Creates a new Message with the given type and payload, and validates the payload.
+
+Functions:
+
+- Message.Retry: Increments the RetryCount of the Message.
+- Message.SetCaller: Sets the Caller field of the Message.
+- New: Creates a new Message with the given type and payload, and validates the payload.
+
+Usage:
+
+To create a new message, use the New function:
+
+	msg, err := message.NewMessage(ctx, "jobType", payload)
+	if err != nil {
+	    // handle error
+	}
+
+To retry a message, use the Message.Retry method:
+
+	msg.Retry()
+
+To set the caller information of a message, use the Message.SetCaller method:
+
+	msg.SetCaller("callerInfo")
+*/
 package message
 
 import (

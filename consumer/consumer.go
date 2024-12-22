@@ -1,3 +1,47 @@
+/*
+Package consumer provides structures and functions for consuming messages from an SQS queue and processing them.
+
+The Output struct represents the result of processing a message, including the message itself, any error that occurred, and whether the error is fatal. The package includes functions for creating a new consumer, consuming messages, processing messages, retrying messages with exponential backoff, and sending messages to a dead letter queue.
+
+Types:
+
+- Config: Configuration for the Consumer, including queue URLs, retry settings, and wait time.
+- OnProcessFunc: A function type for handling the output of message processing.
+- Consumer: Represents a consumer that retrieves and processes messages from the SQS queue.
+- Output: Represents the result of processing a message, including the message itself, any error that occurred, and whether the error is fatal.
+
+Functions:
+
+- New: Creates a new Consumer with the given configuration, SQS client, job retrieval function, and process output handler.
+- Consumer.Consume: Consumes messages from the worker queue and processes them.
+- Consumer.Process: Processes a single message and returns the processing output.
+- Consumer.retry: Retries a job with exponential backoff.
+- Consumer.sendToDLQ: Sends a message to the dead letter queue.
+- Consumer.calculateBackoff: Calculates the exponential backoff delay for retries.
+- parse: Parses a message string into a Message struct and validates it.
+- Output.FatalError: Returns the error if the output is fatal, otherwise nil.
+- Output.NonFatalError: Returns the error if the output is not fatal, otherwise nil.
+
+Usage:
+
+To create a new consumer, use the New function:
+
+	c, err := consumer.New(config, sqsClient, job.GetJobHandler, onProcessFunc)
+	if err != nil {
+	    // handle error
+	}
+
+To start consuming messages, use the Consumer.Consume method:
+
+	c.Consume(ctx)
+
+To process a single message, use the Consumer.Process method:
+
+	output := c.Process(ctx, messageString)
+	if c.OnProcessFunc != nil {
+	    c.OnProcessFunc(output)
+	}
+*/
 package consumer
 
 import (

@@ -1,3 +1,36 @@
+/*
+Package producer provides structures and functions for producing messages to an SQS queue.
+
+The Producer struct represents a producer that sends messages to the SQS queue.
+The package includes functions for creating a new producer, producing messages, and setting caller information.
+
+Types:
+
+- Config: Configuration for the Producer, including the worker queue URL.
+- Producer: Represents a producer that sends messages to the SQS queue.
+
+Functions:
+
+- New: Creates a new Producer with the given configuration and SQS client.
+- Producer.Produce: Produces a message to the worker queue.
+- setCaller: Sets the caller information of a message.
+
+Usage:
+
+To create a new producer, use the New function:
+
+	p, err := producer.New(config, sqsClient)
+	if err != nil {
+	    // handle error
+	}
+
+To produce a message, use the Produce method:
+
+	err := p.Produce(ctx, msg)
+	if err != nil {
+	    // handle error
+	}
+*/
 package producer
 
 import (
@@ -10,6 +43,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/mickamy/go-sqs-worker/internal/sqs"
+	"github.com/mickamy/go-sqs-worker/message"
 )
 
 var (
@@ -40,7 +74,7 @@ func New(cfg Config, client *sqsLib.Client) (*Producer, error) {
 }
 
 func (p *Producer) Produce(ctx context.Context, msg message.Message) error {
-	msg = p.setCaller(msg)
+	msg = setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
 		return fmt.Errorf("validation failed: %v", err)
@@ -58,7 +92,7 @@ func (p *Producer) Produce(ctx context.Context, msg message.Message) error {
 	return nil
 }
 
-func (p *Producer) setCaller(msg message.Message) message.Message {
+func setCaller(msg message.Message) message.Message {
 	frame := callerFrame()
 	caller := fmt.Sprintf("%s:%d", frame.File, frame.Line)
 	msg.SetCaller(caller)

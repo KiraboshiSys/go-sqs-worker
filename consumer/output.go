@@ -1,5 +1,9 @@
 package consumer
 
+import (
+	"github.com/mickamy/go-sqs-worker/message"
+)
+
 type Output struct {
 	Message message.Message
 	Error   error
