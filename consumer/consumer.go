@@ -15,10 +15,6 @@ Functions:
   - New: Creates a new Consumer with the given configuration, SQS client, job retrieval function, and process output handler.
   - Consumer.Do: Consumes messages from the worker queue and processes them.
   - Consumer.Process: Processes a single message and returns the processing output.
-  - Consumer.retry: Retries a job with exponential backoff.
-  - Consumer.sendToDLQ: Sends a message to the dead letter queue.
-  - Consumer.calculateBackoff: Calculates the exponential backoff delay for retries.
-  - parse: Parses a message string into a Message struct and validates it.
   - Output.FatalError: Returns the error if the output is fatal, otherwise nil.
   - Output.NonFatalError: Returns the error if the output is not fatal, otherwise nil.
 

@@ -13,7 +13,6 @@ Functions:
 
   - New: Creates a new Producer with the given configuration and SQS client.
   - Producer.Do: Produces a message to the worker queue.
-  - setCaller: Sets the caller information of a message.
 
 Usage:
 
