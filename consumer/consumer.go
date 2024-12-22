@@ -156,8 +156,13 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg worker.Message) O
 	if err := j.Execute(ctx, msg.Payload); err != nil {
 		if msg.RetryCount < c.config.MaxRetry {
 			if retryErr := c.retry(ctx, msg); retryErr != nil {
-				return fatalOutput(
-					fmt.Errorf("failed to execute job and retry. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, retryErr),
+				if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
+					return fatalOutput(
+						fmt.Errorf("failed to execute job and retry and send to DLQ. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, dlqErr),
+					).withMessage(msg)
+				}
+				return nonFatalOutput(
+					fmt.Errorf("failed to execute job and retry; sent to DLQ successfully id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, retryErr),
 				).withMessage(msg)
 			}
 			return nonFatalOutput(

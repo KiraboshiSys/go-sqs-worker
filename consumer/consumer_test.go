@@ -220,9 +220,10 @@ func TestConsumer_execute(t *testing.T) {
 			},
 		},
 		{
-			name: "failed to execute job and retry",
+			name: "failed to execute job and retry and sent to DLQ successfully",
 			arrange: func(client *mock_sqs.MockClient) testJob {
 				client.EXPECT().EnqueueWithDelay(gomock.Any(), gomock.Eq(cfg.WorkerQueueURL), gomock.Any(), gomock.Any()).Return(fmt.Errorf("enqueue failed"))
+				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(nil)
 				return testJob{
 					ExecuteFunc: func() error {
 						return errTestJob
@@ -231,7 +232,24 @@ func TestConsumer_execute(t *testing.T) {
 			},
 			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
-				assert.ErrorContains(t, got.Error, "failed to execute job and retry.")
+				assert.ErrorContains(t, got.Error, "failed to execute job and retry; sent to DLQ successfully")
+				assert.Equal(t, false, got.Fatal)
+			},
+		},
+		{
+			name: "failed to execute job and retry and send to DLQ",
+			arrange: func(client *mock_sqs.MockClient) testJob {
+				client.EXPECT().EnqueueWithDelay(gomock.Any(), gomock.Eq(cfg.WorkerQueueURL), gomock.Any(), gomock.Any()).Return(fmt.Errorf("enqueue failed"))
+				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(fmt.Errorf("DLQ enqueue failed"))
+				return testJob{
+					ExecuteFunc: func() error {
+						return errTestJob
+					},
+				}
+			},
+			assert: func(t *testing.T, got Output) {
+				assert.NotEmpty(t, got.Message)
+				assert.ErrorContains(t, got.Error, "failed to execute job and retry and send to DLQ.")
 				assert.Equal(t, true, got.Fatal)
 			},
 		},
