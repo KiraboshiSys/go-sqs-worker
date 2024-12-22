@@ -1,9 +1,9 @@
 ARG GO_VERSION=1.23.4
 FROM golang:${GO_VERSION}
-WORKDIR /src
 
-ADD go.* .
-
+WORKDIR /src/example
+COPY ./example/go.* .
 RUN go mod tidy
 
-ADD . .
+WORKDIR /src
+COPY . .

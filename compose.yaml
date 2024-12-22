@@ -3,7 +3,7 @@ services:
   producer:
     build:
       context: .
-    command: go run /src/cmd/producer/main.go
+    command: go run /src/example/cmd/producer/main.go
     volumes:
       - .:/src:cached
       - go:/go
@@ -13,7 +13,7 @@ services:
   worker:
     build:
       context: .
-    command: go run /src/cmd/worker/main.go
+    command: go run /src/example/cmd/worker/main.go
     volumes:
       - .:/src:cached
       - go:/go
