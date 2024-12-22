@@ -15,7 +15,6 @@ import (
 
 	"github.com/mickamy/go-sqs-worker/internal/sqs/mock_sqs"
 	"github.com/mickamy/go-sqs-worker/job"
-	"github.com/mickamy/go-sqs-worker/worker"
 )
 
 type jobType string
@@ -70,7 +69,7 @@ func TestConsumer_Process(t *testing.T) {
 
 	tcs := []struct {
 		name           string
-		arrangeMessage func(msg *worker.Message)
+		arrangeMessage func(msg *message.Message)
 		arrange        func(client *mock_sqs.MockClient)
 		assert         func(t *testing.T, got Output)
 	}{
@@ -86,7 +85,7 @@ func TestConsumer_Process(t *testing.T) {
 		},
 		{
 			name: "failed to unmarshal message and sent to DLQ successfully",
-			arrangeMessage: func(msg *worker.Message) {
+			arrangeMessage: func(msg *message.Message) {
 				msg.Type = ""
 			},
 			arrange: func(client *mock_sqs.MockClient) {
@@ -100,7 +99,7 @@ func TestConsumer_Process(t *testing.T) {
 		},
 		{
 			name: "failed to unmarshal message and send to DLQ",
-			arrangeMessage: func(msg *worker.Message) {
+			arrangeMessage: func(msg *message.Message) {
 				msg.Type = ""
 			},
 			arrange: func(client *mock_sqs.MockClient) {
@@ -114,7 +113,7 @@ func TestConsumer_Process(t *testing.T) {
 		},
 		{
 			name: "failed to get job and sent to DLQ successfully",
-			arrangeMessage: func(msg *worker.Message) {
+			arrangeMessage: func(msg *message.Message) {
 				msg.Type = "NonExistingJob"
 			},
 			arrange: func(client *mock_sqs.MockClient) {
@@ -128,7 +127,7 @@ func TestConsumer_Process(t *testing.T) {
 		},
 		{
 			name: "failed to get job and send to DLQ",
-			arrangeMessage: func(msg *worker.Message) {
+			arrangeMessage: func(msg *message.Message) {
 				msg.Type = "NonExisting"
 			},
 			arrange: func(client *mock_sqs.MockClient) {
@@ -151,7 +150,7 @@ func TestConsumer_Process(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			msg := worker.Message{
+			msg := message.Message{
 				ID:         must(uuid.NewUUID()),
 				Type:       string(testJobType),
 				Caller:     caller(),
@@ -184,7 +183,7 @@ func TestConsumer_execute(t *testing.T) {
 
 	tcs := []struct {
 		name           string
-		arrangeMessage func(msg *worker.Message)
+		arrangeMessage func(msg *message.Message)
 		arrange        func(client *mock_sqs.MockClient) testJob
 		assert         func(t *testing.T, got Output)
 	}{
@@ -255,7 +254,7 @@ func TestConsumer_execute(t *testing.T) {
 		},
 		{
 			name: "max retry attempts exceeded and sent to DLQ successfully",
-			arrangeMessage: func(msg *worker.Message) {
+			arrangeMessage: func(msg *message.Message) {
 				msg.RetryCount = 5
 			},
 			arrange: func(client *mock_sqs.MockClient) testJob {
@@ -274,7 +273,7 @@ func TestConsumer_execute(t *testing.T) {
 		},
 		{
 			name: "max retry attempts reached and failed to send to DLQ",
-			arrangeMessage: func(msg *worker.Message) {
+			arrangeMessage: func(msg *message.Message) {
 				msg.RetryCount = 5
 			},
 			arrange: func(client *mock_sqs.MockClient) testJob {
@@ -302,7 +301,7 @@ func TestConsumer_execute(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			msg := worker.Message{
+			msg := message.Message{
 				ID:        must(uuid.NewUUID()),
 				Type:      string(testJobType),
 				Caller:    caller(),

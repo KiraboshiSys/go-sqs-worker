@@ -10,7 +10,6 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/mickamy/go-sqs-worker/internal/sqs"
-	"github.com/mickamy/go-sqs-worker/worker"
 )
 
 var (
@@ -19,7 +18,7 @@ var (
 
 // Config is a configuration of the Producer
 type Config struct {
-	// WorkerQueueURL is the URL of the worker queue
+	// WorkerQueueURL is the URL of the message queue
 	WorkerQueueURL string
 }
 
@@ -40,7 +39,7 @@ func New(cfg Config, client *sqsLib.Client) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) Produce(ctx context.Context, msg worker.Message) error {
+func (p *Producer) Produce(ctx context.Context, msg message.Message) error {
 	msg = p.setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
@@ -59,7 +58,7 @@ func (p *Producer) Produce(ctx context.Context, msg worker.Message) error {
 	return nil
 }
 
-func (p *Producer) setCaller(msg worker.Message) worker.Message {
+func (p *Producer) setCaller(msg message.Message) message.Message {
 	frame := callerFrame()
 	caller := fmt.Sprintf("%s:%d", frame.File, frame.Line)
 	msg.SetCaller(caller)

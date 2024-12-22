@@ -11,7 +11,7 @@ import (
 
 	"github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/job"
-	"github.com/mickamy/go-sqs-worker/worker"
+	"github.com/mickamy/go-sqs-worker/message"
 )
 
 var (
@@ -154,7 +154,7 @@ func (c *Consumer) Process(ctx context.Context, s string) (out Output) {
 }
 
 // execute executes a job and returns the JobProcessingOutput
-func (c *Consumer) execute(ctx context.Context, j job.Job, msg worker.Message) Output {
+func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) Output {
 	if err := j.Execute(ctx, msg.Payload); err != nil {
 		if msg.RetryCount < c.config.MaxRetry {
 			if retryErr := c.retry(ctx, msg); retryErr != nil {
@@ -187,7 +187,7 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg worker.Message) O
 }
 
 // retry retries a job with exponential backoff
-func (c *Consumer) retry(ctx context.Context, msg worker.Message) error {
+func (c *Consumer) retry(ctx context.Context, msg message.Message) error {
 	msg.Retry()
 	bytes, err := json.Marshal(msg)
 	if err != nil {
@@ -200,7 +200,7 @@ func (c *Consumer) retry(ctx context.Context, msg worker.Message) error {
 }
 
 // sendToDLQ sends a message to the dead letter queue
-func (c *Consumer) sendToDLQ(ctx context.Context, msg worker.Message) error {
+func (c *Consumer) sendToDLQ(ctx context.Context, msg message.Message) error {
 	if !c.config.UseDLQ() {
 		return nil
 	}
@@ -220,14 +220,14 @@ func (c *Consumer) calculateBackoff(retries int) int {
 	return int(math.Min(delay, float64(c.config.MaxDelay)))
 }
 
-// parse parses a message to a worker.Message
-func parse(ctx context.Context, s string) (worker.Message, error) {
-	var msg worker.Message
+// parse parses a message to a message.Message
+func parse(ctx context.Context, s string) (message.Message, error) {
+	var msg message.Message
 	if err := json.Unmarshal([]byte(s), &msg); err != nil {
-		return worker.Message{}, fmt.Errorf("failed to unmarshalling message: %w", err)
+		return message.Message{}, fmt.Errorf("failed to unmarshalling message: %w", err)
 	}
 	if err := validate.StructCtx(ctx, msg); err != nil {
-		return worker.Message{}, fmt.Errorf("failed to validate message: %s", err)
+		return message.Message{}, fmt.Errorf("failed to validate message: %s", err)
 	}
 	return msg, nil
 }

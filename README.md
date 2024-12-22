@@ -32,7 +32,7 @@ import (
 	"fmt"
 
 	"github.com/mickamy/go-sqs-worker/producer"
-	"github.com/mickamy/go-sqs-worker/worker"
+	"github.com/mickamy/go-sqs-worker/message"
 
 	"github.com/mickamy/go-sqs-worker-example/internal/job"
 	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
@@ -51,7 +51,7 @@ func main() {
 		return
 	}
 
-	msg, err := worker.NewMessage(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
+	msg, err := message.New(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
 		Message: "hello",
 	})
 	if err != nil {

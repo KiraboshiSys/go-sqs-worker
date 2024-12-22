@@ -1,4 +1,4 @@
-package worker
+package message
 
 import (
 	"context"
@@ -44,8 +44,8 @@ func (m *Message) SetCaller(caller string) {
 	m.Caller = caller
 }
 
-// NewMessage creates a new Message
-func NewMessage(ctx context.Context, t string, payload any) (Message, error) {
+// New creates a new Message
+func New(ctx context.Context, t string, payload any) (Message, error) {
 	id := uuid.New()
 	bytes, err := json.Marshal(payload)
 	if err != nil {

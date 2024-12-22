@@ -1,11 +1,7 @@
 package consumer
 
-import (
-	"github.com/mickamy/go-sqs-worker/worker"
-)
-
 type Output struct {
-	Message worker.Message
+	Message message.Message
 	Error   error
 	Fatal   bool
 }
@@ -28,7 +24,7 @@ func (o Output) NonFatalError() error {
 	return o.Error
 }
 
-func (o Output) withMessage(m worker.Message) Output {
+func (o Output) withMessage(m message.Message) Output {
 	o.Message = m
 	return o
 }
