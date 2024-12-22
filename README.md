@@ -90,7 +90,7 @@ func main() {
       DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
    }
 
-   c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler, func(output consumer.ProcessingOutput) {
+   c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler, func(output consumer.Output) {
       if fatalErr := output.FatalError(); fatalErr != nil {
          fmt.Println("fatal error occurred", "error", fatalErr, "message", output.Message)
       } else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {

@@ -72,13 +72,13 @@ func TestConsumer_Process(t *testing.T) {
 		name           string
 		arrangeMessage func(msg *worker.Message)
 		arrange        func(client *mock_sqs.MockClient)
-		assert         func(t *testing.T, got ProcessingOutput)
+		assert         func(t *testing.T, got Output)
 	}{
 		{
 			name: "successful processing",
 			arrange: func(client *mock_sqs.MockClient) {
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.NoError(t, got.Error)
 				assert.Equal(t, false, got.Fatal)
@@ -92,7 +92,7 @@ func TestConsumer_Process(t *testing.T) {
 			arrange: func(client *mock_sqs.MockClient) {
 				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(nil)
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.Empty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to unmarshal message; sent to DLQ successfully: failed to validate message")
 				assert.Equal(t, false, got.Fatal)
@@ -106,7 +106,7 @@ func TestConsumer_Process(t *testing.T) {
 			arrange: func(client *mock_sqs.MockClient) {
 				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(fmt.Errorf("enqueue failed"))
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.Empty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to unmarshal message and send to DLQ: failed to enqueue message on sending to DLQ")
 				assert.Equal(t, true, got.Fatal)
@@ -120,7 +120,7 @@ func TestConsumer_Process(t *testing.T) {
 			arrange: func(client *mock_sqs.MockClient) {
 				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(nil)
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to get job; sent to DLQ successfully.")
 				assert.Equal(t, false, got.Fatal)
@@ -134,7 +134,7 @@ func TestConsumer_Process(t *testing.T) {
 			arrange: func(client *mock_sqs.MockClient) {
 				client.EXPECT().Enqueue(gomock.Any(), gomock.Eq(cfg.DeadLetterQueueURL), gomock.Any()).Return(fmt.Errorf("enqueue failed"))
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to get job and send to DLQ.")
 				assert.Equal(t, true, got.Fatal)
@@ -186,7 +186,7 @@ func TestConsumer_execute(t *testing.T) {
 		name           string
 		arrangeMessage func(msg *worker.Message)
 		arrange        func(client *mock_sqs.MockClient) testJob
-		assert         func(t *testing.T, got ProcessingOutput)
+		assert         func(t *testing.T, got Output)
 	}{
 		{
 			name: "successful execution",
@@ -197,7 +197,7 @@ func TestConsumer_execute(t *testing.T) {
 					},
 				}
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.NoError(t, got.Error)
 				assert.Equal(t, false, got.Fatal)
@@ -213,7 +213,7 @@ func TestConsumer_execute(t *testing.T) {
 					},
 				}
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to execute job; retried successfully.")
 				assert.Equal(t, false, got.Fatal)
@@ -229,7 +229,7 @@ func TestConsumer_execute(t *testing.T) {
 					},
 				}
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to execute job and retry.")
 				assert.Equal(t, true, got.Fatal)
@@ -248,7 +248,7 @@ func TestConsumer_execute(t *testing.T) {
 					},
 				}
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "max retry attempts exceeded; sent to DLQ successfully.")
 				assert.Equal(t, false, got.Fatal)
@@ -267,7 +267,7 @@ func TestConsumer_execute(t *testing.T) {
 					},
 				}
 			},
-			assert: func(t *testing.T, got ProcessingOutput) {
+			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "max retry attempts reached; failed to send to DLQ.")
 				assert.Equal(t, true, got.Fatal)

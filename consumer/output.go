@@ -4,38 +4,38 @@ import (
 	"github.com/mickamy/go-sqs-worker/worker"
 )
 
-type ProcessingOutput struct {
+type Output struct {
 	Message worker.Message
 	Error   error
 	Fatal   bool
 }
 
-func (o ProcessingOutput) FatalError() error {
+func (o Output) FatalError() error {
 	if o.Fatal {
 		return o.Error
 	}
 	return nil
 }
 
-func (o ProcessingOutput) NonFatalError() error {
+func (o Output) NonFatalError() error {
 	if o.Fatal {
 		return nil
 	}
 	return o.Error
 }
 
-func (o ProcessingOutput) WithMessage(m worker.Message) ProcessingOutput {
-	return ProcessingOutput{
+func (o Output) WithMessage(m worker.Message) Output {
+	return Output{
 		Message: m,
 		Error:   o.Error,
 		Fatal:   o.Fatal,
 	}
 }
 
-func nonFatalJobProcessingOutput(err error) ProcessingOutput {
-	return ProcessingOutput{Error: err}
+func nonFatalOutput(err error) Output {
+	return Output{Error: err}
 }
 
-func fatalJobProcessingOutput(err error) ProcessingOutput {
-	return ProcessingOutput{Error: err, Fatal: true}
+func fatalOutput(err error) Output {
+	return Output{Error: err, Fatal: true}
 }
