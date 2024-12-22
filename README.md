@@ -28,41 +28,42 @@ The producer is responsible for sending jobs to the SQS queue.
 package main
 
 import (
-    "context"
-    "fmt"
+	"context"
+	"fmt"
 
-    "github.com/mickamy/go-sqs-worker/producer"
-    "github.com/mickamy/go-sqs-worker/worker"
+	"github.com/mickamy/go-sqs-worker/producer"
+	"github.com/mickamy/go-sqs-worker/worker"
 
-    "github.com/mickamy/go-sqs-worker-example/internal/job"
-    "github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
+	"github.com/mickamy/go-sqs-worker-example/internal/job"
+	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
 )
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    cfg := producer.Config{
-        WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+	cfg := producer.Config{
+		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 	}
 
 	p, err := producer.New(cfg, aws.NewSQSClient(ctx))
 	if err != nil {
-        fmt.Println("failed to create producer", "error", err)
+		fmt.Println("failed to create producer", "error", err)
 		return
-    }
+	}
 
-    msg, err := worker.NewMessage(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
-        Message: "hello",
+	msg, err := worker.NewMessage(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
+		Message: "hello",
 	})
-    if err != nil {
-        fmt.Println("failed to create successful job message", "error", err)
-        return
-    }
-    if err := p.Produce(ctx, msg); err != nil {
-        fmt.Println("failed to produce successful job", "error", err)
-        return
+	if err != nil {
+		fmt.Println("failed to create successful job message", "error", err)
+		return
+	}
+	if err := p.Produce(ctx, msg); err != nil {
+		fmt.Println("failed to produce successful job", "error", err)
+		return
 	}
 }
+
 ```
 
 ### Consumer Example
@@ -73,40 +74,39 @@ The consumer retrieves and processes jobs from the SQS queue.
 package main
 
 import (
-    "context"
-    "fmt"
-    
-    "github.com/mickamy/go-sqs-worker/consumer"
-    
-    "github.com/mickamy/go-sqs-worker-example/internal/job"
-    "github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
+	"context"
+	"fmt"
+
+	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
+	"github.com/mickamy/go-sqs-worker/consumer"
 )
 
 func main() {
-    ctx := context.Background()
-    
-    cfg := consumer.Config{
-        WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
-        DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
-    }
-    
-    c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler, func(output consumer.Output) {
-        if fatalErr := output.FatalError(); fatalErr != nil {
-            fmt.Println("fatal error occurred", "error", fatalErr, "message", output.Message)
-        } else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {
-            fmt.Println("non-fatal error occurred", "error", nonFatalErr, "message", output.Message)
-        } else {
-            fmt.Println("message processed successfully", "message", output.Message)
-        }
-    })
-    
-    if err != nil {
-        fmt.Println("failed to create consumer", "error", err)
-        return
-    }
-    
-    c.Consume(ctx)
+	ctx := context.Background()
+
+	cfg := consumer.Config{
+		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
+	}
+
+	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler, func(output consumer.Output) {
+		if fatalErr := output.FatalError(); fatalErr != nil {
+			fmt.Println("fatal error occurred", "error", fatalErr, "message", output.Message)
+		} else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {
+			fmt.Println("non-fatal error occurred", "error", nonFatalErr, "message", output.Message)
+		} else {
+			fmt.Println("message processed successfully", "message", output.Message)
+		}
+	})
+
+	if err != nil {
+		fmt.Println("failed to create consumer", "error", err)
+		return
+	}
+
+	c.Consume(ctx)
 }
+
 
 ```
 
