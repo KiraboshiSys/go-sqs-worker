@@ -52,7 +52,7 @@ type Message struct {
 	// ID is the unique identifier of the job
 	ID uuid.UUID `json:"id" validate:"required,uuid"`
 
-	// Type is the type of the job. It should be the value of job.Type.String
+	// Type is the type of the job. It is used to determine the job handler
 	Type string `json:"type" validate:"required"`
 
 	// Payload is the data to be passed to the job
@@ -79,7 +79,7 @@ func (m *Message) SetCaller(caller string) {
 }
 
 // New creates a new Message
-func New(ctx context.Context, t string, payload any) (Message, error) {
+func New(ctx context.Context, jobType string, payload any) (Message, error) {
 	id := uuid.New()
 	bytes, err := json.Marshal(payload)
 	if err != nil {
@@ -90,7 +90,7 @@ func New(ctx context.Context, t string, payload any) (Message, error) {
 	}
 	return Message{
 		ID:        id,
-		Type:      t,
+		Type:      jobType,
 		Payload:   string(bytes),
 		CreatedAt: time.Now(),
 	}, nil
