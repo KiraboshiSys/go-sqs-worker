@@ -49,7 +49,7 @@ func NewMessage(ctx context.Context, t string, payload any) (Message, error) {
 	id := uuid.New()
 	bytes, err := json.Marshal(payload)
 	if err != nil {
-		return Message{}, fmt.Errorf("marshalling payload failed: %w", err)
+		return Message{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 	if err := validate.StructCtx(ctx, payload); err != nil {
 		return Message{}, fmt.Errorf("validation failed: %v", err)
