@@ -56,7 +56,7 @@ func main() {
 		go func(workerID int) {
 			defer wg.Done()
 			fmt.Println("worker", workerID, "starting")
-			c.Consume(ctx)
+			c.Do(ctx)
 			fmt.Println("worker", workerID, "finished")
 		}(i)
 	}

@@ -58,7 +58,7 @@ func main() {
 		fmt.Println("failed to create successful job message", "error", err)
 		return
 	}
-	if err := p.Produce(ctx, msg); err != nil {
+	if err := p.Do(ctx, msg); err != nil {
 		fmt.Println("failed to produce successful job", "error", err)
 		return
 	}
@@ -104,7 +104,7 @@ func main() {
 		return
 	}
 
-	c.Consume(ctx)
+	c.Do(ctx)
 }
 
 

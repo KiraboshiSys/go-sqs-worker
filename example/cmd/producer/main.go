@@ -59,7 +59,7 @@ func main() {
 				fmt.Println("failed to create failing job message", "error", err)
 				continue
 			}
-			if err := p.Produce(ctx, msg); err != nil {
+			if err := p.Do(ctx, msg); err != nil {
 				fmt.Println("failed to produce failing job", "error", err)
 				continue
 			}
@@ -72,7 +72,7 @@ func main() {
 				fmt.Println("failed to create flaky job message", "error", err)
 				continue
 			}
-			if err := p.Produce(ctx, msg); err != nil {
+			if err := p.Do(ctx, msg); err != nil {
 				fmt.Println("failed to produce flaky job", "error", err)
 				continue
 			}
@@ -84,7 +84,7 @@ func main() {
 				fmt.Println("failed to create successful job message", "error", err)
 				continue
 			}
-			if err := p.Produce(ctx, msg); err != nil {
+			if err := p.Do(ctx, msg); err != nil {
 				fmt.Println("failed to produce successful job", "error", err)
 				continue
 			}

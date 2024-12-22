@@ -12,7 +12,7 @@ Types:
 Functions:
 
   - New: Creates a new Producer with the given configuration and SQS client.
-  - Producer.Produce: Produces a message to the worker queue.
+  - Producer.Do: Produces a message to the worker queue.
   - setCaller: Sets the caller information of a message.
 
 Usage:
@@ -24,9 +24,9 @@ To create a new producer, use the New function:
 	    // handle error
 	}
 
-To produce a message, use the Producer.Produce method:
+To produce a message, use the Producer.Do method:
 
-	err := p.Produce(ctx, msg)
+	err := p.Do(ctx, msg)
 	if err != nil {
 	    // handle error
 	}
@@ -73,11 +73,11 @@ func New(cfg Config, client *sqs.Client) (*Producer, error) {
 	}, nil
 }
 
-// Produce produces a message to the worker queue
+// Do produces a message to the worker queue
 // It validates the message and enqueues it to the worker queue
 // If the message is invalid, it returns an error
 // If the enqueue fails, it returns an error
-func (p *Producer) Produce(ctx context.Context, msg message.Message) error {
+func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	msg = setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {

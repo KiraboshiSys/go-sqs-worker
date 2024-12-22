@@ -13,7 +13,7 @@ Types:
 Functions:
 
   - New: Creates a new Consumer with the given configuration, SQS client, job retrieval function, and process output handler.
-  - Consumer.Consume: Consumes messages from the worker queue and processes them.
+  - Consumer.Do: Consumes messages from the worker queue and processes them.
   - Consumer.Process: Processes a single message and returns the processing output.
   - Consumer.retry: Retries a job with exponential backoff.
   - Consumer.sendToDLQ: Sends a message to the dead letter queue.
@@ -31,9 +31,9 @@ To create a new consumer, use the New function:
 	    // handle error
 	}
 
-To start consuming messages, use the Consumer.Consume method:
+To start consuming messages, use the Consumer.Do method:
 
-	c.Consume(ctx)
+	c.Do(ctx)
 
 To process a single message, use the Consumer.Process method:
 
@@ -145,12 +145,12 @@ func newConsumer(config Config, client internalSQS.Client, getJobFunc job.GetFun
 	}, nil
 }
 
-// Consume continuously retrieves and processes messages from the worker queue until the context is canceled.
+// Do continuously retrieves and processes messages from the worker queue until the context is canceled.
 // It uses long polling to wait for messages and processes each message using the configured job handler.
 // If a message fails to process, it will be retried based on the configured retry logic.
 // If the maximum number of retries is reached, the message will be sent to the dead letter queue (DLQ) if configured.
 // The OnProcessFunc callback is called after each message is processed, allowing custom handling of the output.
-func (c *Consumer) Consume(ctx context.Context) {
+func (c *Consumer) Do(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
