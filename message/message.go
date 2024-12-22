@@ -6,14 +6,14 @@ The package also includes functions for creating new messages, retrying messages
 
 Types:
 
-- Message: Represents a job message with fields for ID, type, payload, retry count, caller information, and creation time.
-- New: Creates a new Message with the given type and payload, and validates the payload.
+  - Message: Represents a job message with fields for ID, type, payload, retry count, caller information, and creation time.
+  - New: Creates a new Message with the given type and payload, and validates the payload.
 
 Functions:
 
-- Message.Retry: Increments the RetryCount of the Message.
-- Message.SetCaller: Sets the Caller field of the Message.
-- New: Creates a new Message with the given type and payload, and validates the payload.
+  - Message.Retry: Increments the RetryCount of the Message.
+  - Message.SetCaller: Sets the Caller field of the Message.
+  - New: Creates a new Message with the given type and payload, and validates the payload.
 
 Usage:
 

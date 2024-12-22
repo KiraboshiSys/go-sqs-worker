@@ -6,14 +6,14 @@ The package includes functions for creating a new producer, producing messages, 
 
 Types:
 
-- Config: Configuration for the Producer, including the worker queue URL.
-- Producer: Represents a producer that sends messages to the SQS queue.
+  - Config: Configuration for the Producer, including the worker queue URL.
+  - Producer: Represents a producer that sends messages to the SQS queue.
 
 Functions:
 
-- New: Creates a new Producer with the given configuration and SQS client.
-- Producer.Produce: Produces a message to the worker queue.
-- setCaller: Sets the caller information of a message.
+  - New: Creates a new Producer with the given configuration and SQS client.
+  - Producer.Produce: Produces a message to the worker queue.
+  - setCaller: Sets the caller information of a message.
 
 Usage:
 

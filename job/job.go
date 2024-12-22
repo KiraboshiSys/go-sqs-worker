@@ -1,3 +1,6 @@
+/*
+Package job provides an interface for job execution and a function to get a job by job type
+*/
 package job
 
 import (

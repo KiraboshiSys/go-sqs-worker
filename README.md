@@ -4,11 +4,11 @@
 
 ## Features
 
-- **Producer and Consumer Support**: Create and handle jobs with separate producer and consumer components.
-- **Dead Letter Queue Integration**: Built-in support for DLQs to ensure reliable message processing.
-- **Configurable Retry Mechanism**: Customize the number of retries and delay intervals for failed jobs.
-- **Graceful Shutdown**: Handles context cancellation and cleanup during termination.
-- **LocalStack Compatibility**: Works seamlessly with LocalStack for local development and testing. 
+- **Producer and Consumer Support**: Enables the creation and handling of jobs with distinct producer and consumer components.
+- **Dead Letter Queue Integration**: Provides built-in support for Dead Letter Queues (DLQs) to ensure reliable message processing.
+- **Configurable Retry Mechanism**: Allows customization of the number of retries and delay intervals for failed jobs.
+- **Graceful Shutdown**: Manages context cancellation and cleanup during termination.
+- **LocalStack Compatibility**: Fully compatible with LocalStack for local development and testing. 
 
 ## Installation
 
@@ -122,12 +122,12 @@ make up
 ## Configuration
 The library uses the following configuration options:
 
-- **WorkerQueueURL**: The URL of the SQS queue for worker messages.
-- **DeadLetterQueueURL**: The URL of the DLQ for failed messages.
-- **MaxRetry**: Maximum number of retries for a failed job (default: 3). 
-- **BaseDelay**: Initial delay (in seconds) before retrying a failed job (default: 1.0). 
-- **MaxDelay**: Maximum delay (in seconds) between retries (default: 60.0).
-- **WaitTimeSeconds**: Maximum time to wait for a message to be received (default: 20). The maximum is [20 seconds](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html).
+- **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
+- **DeadLetterQueueURL**: Optional. The URL of the Dead Letter Queue (DLQ) for messages that fail to process after the maximum number of retries. If not set, the DLQ is not used.
+- **MaxRetry**: Optional. The maximum number of retry attempts for a failed job. The default value is 5 retries.
+- **BaseDelay**: Optional. The initial delay (in seconds) before retrying a failed job. This value is used as the base for calculating exponential backoff delays. The default value is 30 seconds.
+- **MaxDelay**: Optional. The maximum delay (in seconds) between retries, used to cap the exponential backoff delay. The default value is 3600 seconds (1 hour).
+- **WaitTimeSeconds**: Optional. The maximum time (in seconds) to wait for a message to be received from the SQS queue. This value is used for long polling. The default value is 20 seconds. The maximum allowed value is [20 seconds](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html).
 
 ## Documentation
 GoDoc documentation is available at [pkg.go.dev](https://pkg.go.dev/github.com/mickamy/go-sqs-worker).

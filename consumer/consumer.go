@@ -5,22 +5,22 @@ The Output struct represents the result of processing a message, including the m
 
 Types:
 
-- Config: Configuration for the Consumer, including queue URLs, retry settings, and wait time.
-- OnProcessFunc: A function type for handling the output of message processing.
-- Consumer: Represents a consumer that retrieves and processes messages from the SQS queue.
-- Output: Represents the result of processing a message, including the message itself, any error that occurred, and whether the error is fatal.
+  - Config: Configuration for the Consumer, including queue URLs, retry settings, and wait time.
+  - OnProcessFunc: A function type for handling the output of message processing.
+  - Consumer: Represents a consumer that retrieves and processes messages from the SQS queue.
+  - Output: Represents the result of processing a message, including the message itself, any error that occurred, and whether the error is fatal.
 
 Functions:
 
-- New: Creates a new Consumer with the given configuration, SQS client, job retrieval function, and process output handler.
-- Consumer.Consume: Consumes messages from the worker queue and processes them.
-- Consumer.Process: Processes a single message and returns the processing output.
-- Consumer.retry: Retries a job with exponential backoff.
-- Consumer.sendToDLQ: Sends a message to the dead letter queue.
-- Consumer.calculateBackoff: Calculates the exponential backoff delay for retries.
-- parse: Parses a message string into a Message struct and validates it.
-- Output.FatalError: Returns the error if the output is fatal, otherwise nil.
-- Output.NonFatalError: Returns the error if the output is not fatal, otherwise nil.
+  - New: Creates a new Consumer with the given configuration, SQS client, job retrieval function, and process output handler.
+  - Consumer.Consume: Consumes messages from the worker queue and processes them.
+  - Consumer.Process: Processes a single message and returns the processing output.
+  - Consumer.retry: Retries a job with exponential backoff.
+  - Consumer.sendToDLQ: Sends a message to the dead letter queue.
+  - Consumer.calculateBackoff: Calculates the exponential backoff delay for retries.
+  - parse: Parses a message string into a Message struct and validates it.
+  - Output.FatalError: Returns the error if the output is fatal, otherwise nil.
+  - Output.NonFatalError: Returns the error if the output is not fatal, otherwise nil.
 
 Usage:
 
@@ -62,30 +62,41 @@ var (
 	validate = validator.New()
 )
 
-// Config is a configuration of the Consumer
+// Config represents the configuration for a Consumer.
+// It includes settings for the worker queue, dead letter queue, retry logic, and SQS-specific options.
 type Config struct {
-	// WorkerQueueURL is the URL of the worker queue
+	// WorkerQueueURL is the URL of the worker queue.
+	// This queue is used to store messages that need to be processed by the worker.
+	// It is a required configuration parameter.
 	WorkerQueueURL string
 
-	// DeadLetterQueueURL is the URL of the dead letter queue
+	// DeadLetterQueueURL is the URL of the dead letter queue.
+	// If not set, the dead letter queue is not used.
+	// Messages that fail to process after the maximum number of retries are sent to this queue.
 	DeadLetterQueueURL string
 
-	// MaxRetry is the maximum number of retries (default 5)
+	// MaxRetry is the maximum number of retries for a failed job.
+	// If not set, the default value is 5 retries.
 	MaxRetry int
 
-	// BaseDelay is the initial delay time (default 30)
+	// BaseDelay is the initial delay (in seconds) before retrying a failed job.
+	// This value is used as the base for calculating exponential backoff delays.
+	// If not set, the default value is 30 seconds.
 	BaseDelay float64
 
-	// MaxDelay is the maximum delay time (default 3600)
+	// MaxDelay is the maximum delay (in seconds) between retries.
+	// This value is used to cap the exponential backoff delay.
+	// If not set, the default value is 3600 seconds (1 hour).
 	MaxDelay int
 
-	// WaitTimeSeconds is the maximum time to wait for a message to be received (default 20)
-	// The maximum is 20 seconds
-	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
+	// WaitTimeSeconds is the maximum time (in seconds) to wait for a message to be received from the SQS queue.
+	// This value is used for long polling. The maximum allowed value is 20 seconds.
+	// If not set, the default value is 20 seconds.
+	// For more information, see: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
 	WaitTimeSeconds int
 }
 
-func (c Config) UseDLQ() bool {
+func (c Config) useDLQ() bool {
 	return c.DeadLetterQueueURL != ""
 }
 
@@ -105,9 +116,11 @@ func newConfig(c Config) Config {
 	return c
 }
 
-// OnProcessFunc is a function to handle the output of the processing
+// OnProcessFunc is a function type that handles the output of message processing.
+// It is called after a message has been processed, with the resulting Output as its argument.
 type OnProcessFunc func(output Output)
 
+// Consumer represents a consumer that retrieves and processes messages from the SQS queue.
 type Consumer struct {
 	config        Config
 	sqsClient     internalSQS.Client
@@ -132,7 +145,11 @@ func newConsumer(config Config, client internalSQS.Client, getJobFunc job.GetFun
 	}, nil
 }
 
-// Consume consumes messages from the worker queue
+// Consume continuously retrieves and processes messages from the worker queue until the context is canceled.
+// It uses long polling to wait for messages and processes each message using the configured job handler.
+// If a message fails to process, it will be retried based on the configured retry logic.
+// If the maximum number of retries is reached, the message will be sent to the dead letter queue (DLQ) if configured.
+// The OnProcessFunc callback is called after each message is processed, allowing custom handling of the output.
 func (c *Consumer) Consume(ctx context.Context) {
 	for {
 		select {
@@ -162,11 +179,16 @@ func (c *Consumer) Consume(ctx context.Context) {
 	}
 }
 
-// Process processes a message
-func (c *Consumer) Process(ctx context.Context, s string) (out Output) {
+// Process processes a single message string and returns the processing output.
+// It unmarshals the message, retrieves the corresponding job, and executes it.
+// If an error occurs during unmarshalling or job retrieval, the message is sent to the DLQ if configured.
+// If the job execution fails, it retries the job based on the configured retry logic.
+// If the maximum number of retries is reached, the message is sent to the DLQ if configured.
+// The function recovers from panics and returns a fatal error in such cases.
+func (c *Consumer) Process(ctx context.Context, s string) (output Output) {
 	defer func() {
 		if r := recover(); r != nil {
-			out = fatalOutput(fmt.Errorf("panic occurred while processing message: %v", r))
+			output = fatalOutput(fmt.Errorf("panic occurred while processing message: %v", r))
 		}
 	}()
 
@@ -197,7 +219,7 @@ func (c *Consumer) Process(ctx context.Context, s string) (out Output) {
 	return c.execute(ctx, j, msg)
 }
 
-// execute executes a job and returns the JobProcessingOutput
+// execute executes a job and returns the Output
 func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) Output {
 	if err := j.Execute(ctx, msg.Payload); err != nil {
 		if msg.RetryCount < c.config.MaxRetry {
@@ -245,7 +267,7 @@ func (c *Consumer) retry(ctx context.Context, msg message.Message) error {
 
 // sendToDLQ sends a message to the dead letter queue
 func (c *Consumer) sendToDLQ(ctx context.Context, msg message.Message) error {
-	if !c.config.UseDLQ() {
+	if !c.config.useDLQ() {
 		return nil
 	}
 	bytes, err := json.Marshal(msg)
