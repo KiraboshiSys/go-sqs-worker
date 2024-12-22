@@ -132,7 +132,7 @@ func (c *Consumer) Process(ctx context.Context, s string) (out Output) {
 			).withMessage(msg)
 		}
 		return nonFatalOutput(
-			fmt.Errorf("failed to unmarshal message; sent to DLQ successfully: %s", err),
+			fmt.Errorf("failed to unmarshal message; sent to DLQ successfully: %w", err),
 		).withMessage(msg)
 	}
 
@@ -140,11 +140,11 @@ func (c *Consumer) Process(ctx context.Context, s string) (out Output) {
 	if err != nil {
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 			return fatalOutput(
-				fmt.Errorf("failed to get job and send to DLQ. id=[%s], Type=[%s], Caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, dlqErr),
+				fmt.Errorf("failed to get job and send to DLQ: %w", dlqErr),
 			).withMessage(msg)
 		}
 		return nonFatalOutput(
-			fmt.Errorf("failed to get job; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
+			fmt.Errorf("failed to get job; sent to DLQ successfully: %w", err),
 		).withMessage(msg)
 	}
 
@@ -158,25 +158,25 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg worker.Message) O
 			if retryErr := c.retry(ctx, msg); retryErr != nil {
 				if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 					return fatalOutput(
-						fmt.Errorf("failed to execute job and retry and send to DLQ. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, dlqErr),
+						fmt.Errorf("failed to execute job and retry and send to DLQ: %w", dlqErr),
 					).withMessage(msg)
 				}
 				return nonFatalOutput(
-					fmt.Errorf("failed to execute job and retry; sent to DLQ successfully id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, retryErr),
+					fmt.Errorf("failed to execute job and retry; sent to DLQ successfully: %w", retryErr),
 				).withMessage(msg)
 			}
 			return nonFatalOutput(
-				fmt.Errorf("failed to execute job; retried successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
+				fmt.Errorf("failed to execute job; retried successfully: %w", err),
 			).withMessage(msg)
 		}
 
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 			return fatalOutput(
-				fmt.Errorf("max retry attempts reached; failed to send to DLQ. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, dlqErr),
+				fmt.Errorf("max retry attempts reached; failed to send to DLQ: %w", dlqErr),
 			).withMessage(msg)
 		}
 		return nonFatalOutput(
-			fmt.Errorf("max retry attempts exceeded; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
+			fmt.Errorf("max retry attempts exceeded; sent to DLQ successfully: %w", err),
 		).withMessage(msg)
 	}
 	return Output{

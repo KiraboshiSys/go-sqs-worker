@@ -122,7 +122,7 @@ func TestConsumer_Process(t *testing.T) {
 			},
 			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
-				assert.ErrorContains(t, got.Error, "failed to get job; sent to DLQ successfully.")
+				assert.ErrorContains(t, got.Error, "failed to get job; sent to DLQ successfully")
 				assert.Equal(t, false, got.Fatal)
 			},
 		},
@@ -136,7 +136,7 @@ func TestConsumer_Process(t *testing.T) {
 			},
 			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
-				assert.ErrorContains(t, got.Error, "failed to get job and send to DLQ.")
+				assert.ErrorContains(t, got.Error, "failed to get job and send to DLQ")
 				assert.Equal(t, true, got.Fatal)
 			},
 		},
@@ -215,7 +215,7 @@ func TestConsumer_execute(t *testing.T) {
 			},
 			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
-				assert.ErrorContains(t, got.Error, "failed to execute job; retried successfully.")
+				assert.ErrorContains(t, got.Error, "failed to execute job; retried successfully")
 				assert.Equal(t, false, got.Fatal)
 			},
 		},
@@ -249,7 +249,7 @@ func TestConsumer_execute(t *testing.T) {
 			},
 			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
-				assert.ErrorContains(t, got.Error, "failed to execute job and retry and send to DLQ.")
+				assert.ErrorContains(t, got.Error, "failed to execute job and retry and send to DLQ")
 				assert.Equal(t, true, got.Fatal)
 			},
 		},
@@ -268,7 +268,7 @@ func TestConsumer_execute(t *testing.T) {
 			},
 			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
-				assert.ErrorContains(t, got.Error, "max retry attempts exceeded; sent to DLQ successfully.")
+				assert.ErrorContains(t, got.Error, "max retry attempts exceeded; sent to DLQ successfully")
 				assert.Equal(t, false, got.Fatal)
 			},
 		},
@@ -287,7 +287,7 @@ func TestConsumer_execute(t *testing.T) {
 			},
 			assert: func(t *testing.T, got Output) {
 				assert.NotEmpty(t, got.Message)
-				assert.ErrorContains(t, got.Error, "max retry attempts reached; failed to send to DLQ.")
+				assert.ErrorContains(t, got.Error, "max retry attempts reached; failed to send to DLQ")
 				assert.Equal(t, true, got.Fatal)
 			},
 		},
