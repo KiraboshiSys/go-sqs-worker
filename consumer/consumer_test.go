@@ -60,7 +60,6 @@ func caller() string {
 var (
 	errTestJob = errors.New("test job execution failed")
 	cfg        = Config{
-		UseDLQ:             true,
 		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 	}

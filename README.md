@@ -81,7 +81,6 @@ func main() {
    ctx := context.Background()
 
    cfg := consumer.Config{
-      UseDLQ:             true,
       WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
       DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
    }
@@ -120,7 +119,6 @@ The library uses the following configuration options:
 
 - **WorkerQueueURL**: The URL of the SQS queue for worker messages.
 - **DeadLetterQueueURL**: The URL of the DLQ for failed messages.
-- **UseDLQ**: Enables DLQ handling (default: false). 
 - **MaxRetry**: Maximum number of retries for a failed job (default: 3). 
 - **BaseDelay**: Initial delay (in seconds) before retrying a failed job (default: 1.0). 
 - **MaxDelay**: Maximum delay (in seconds) between retries (default: 60.0).

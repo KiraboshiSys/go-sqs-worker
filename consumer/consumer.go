@@ -20,14 +20,10 @@ var (
 
 // Config is a configuration of the Consumer
 type Config struct {
-	// UseDLQ is a flag to enable DLQ
-	UseDLQ bool
-
 	// WorkerQueueURL is the URL of the worker queue
 	WorkerQueueURL string
 
 	// DeadLetterQueueURL is the URL of the dead letter queue
-	// This is required if UseDLQ is true
 	DeadLetterQueueURL string
 
 	// MaxRetry is the maximum number of retries (default 5)
@@ -41,6 +37,10 @@ type Config struct {
 
 	// WaitTimeSeconds is the wait time for long polling (default 20)
 	WaitTimeSeconds int
+}
+
+func (c Config) UseDLQ() bool {
+	return c.DeadLetterQueueURL != ""
 }
 
 func newConfig(c Config) Config {
@@ -194,7 +194,7 @@ func (c *Consumer) retry(ctx context.Context, msg worker.Message) error {
 
 // sendToDLQ sends a message to the dead letter queue
 func (c *Consumer) sendToDLQ(ctx context.Context, msg worker.Message) error {
-	if !c.config.UseDLQ {
+	if !c.config.UseDLQ() {
 		return nil
 	}
 	bytes, err := json.Marshal(msg)

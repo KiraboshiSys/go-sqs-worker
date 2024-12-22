@@ -21,7 +21,6 @@ func main() {
 	defer cancel()
 
 	cfg := consumer.Config{
-		UseDLQ:             true,
 		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 	}
