@@ -39,7 +39,7 @@ services:
       - DEBUG=0
       - LS_LOG=error
     healthcheck:
-      test: ["CMD-SHELL", "curl http://localhost:4566/health | grep '\"initScripts\": \"initialized\"'"]
+      test: awslocal sqs list-queues
       interval: 2s
       start_period: 20s
       retries: 30
