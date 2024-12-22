@@ -33,7 +33,7 @@ type Config struct {
 	BaseDelay float64
 
 	// MaxDelay is the maximum delay time (default 3600)
-	MaxDelay float64
+	MaxDelay int
 
 	// WaitTimeSeconds is the wait time for long polling (default 20)
 	WaitTimeSeconds int
@@ -210,7 +210,7 @@ func (c *Consumer) sendToDLQ(ctx context.Context, msg worker.Message) error {
 // calculateBackOff calculates exponential backoff
 func (c *Consumer) calculateBackoff(retries int) int {
 	delay := c.config.BaseDelay * math.Pow(2, float64(retries-1))
-	return int(math.Min(delay, c.config.MaxDelay))
+	return int(math.Min(delay, float64(c.config.MaxDelay)))
 }
 
 // parse parses a message to a worker.Message
