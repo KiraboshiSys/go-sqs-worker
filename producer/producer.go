@@ -41,9 +41,7 @@ func New(cfg Config, client *sqsLib.Client) (*Producer, error) {
 }
 
 func (p *Producer) Produce(ctx context.Context, msg worker.Message) error {
-	frame := callerFrame()
-	caller := fmt.Sprintf("%s:%d", frame.File, frame.Line)
-	msg.SetCaller(caller)
+	msg = p.setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
 		return fmt.Errorf("validation failed: %v", err)
@@ -51,20 +49,27 @@ func (p *Producer) Produce(ctx context.Context, msg worker.Message) error {
 
 	bytes, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("marshalling failed: %s", err)
+		return fmt.Errorf("failed to marshal message: %s", err)
 	}
 
 	if err := p.client.Enqueue(ctx, p.workerQueueURL, string(bytes)); err != nil {
-		return fmt.Errorf("enqueue failed: %w", err)
+		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
 
 	return nil
 }
 
+func (p *Producer) setCaller(msg worker.Message) worker.Message {
+	frame := callerFrame()
+	caller := fmt.Sprintf("%s:%d", frame.File, frame.Line)
+	msg.SetCaller(caller)
+	return msg
+}
+
 // callerFrame returns the frame of the caller
 func callerFrame() runtime.Frame {
 	pcs := [13]uintptr{}
-	length := runtime.Callers(3, pcs[:])
+	length := runtime.Callers(4, pcs[:])
 	frames := runtime.CallersFrames(pcs[:length])
 	frame, _ := frames.Next()
 	return frame
