@@ -24,7 +24,7 @@ To create a new producer, use the New function:
 	    // handle error
 	}
 
-To produce a message, use the Produce method:
+To produce a message, use the Producer.Produce method:
 
 	err := p.Produce(ctx, msg)
 	if err != nil {
@@ -39,10 +39,10 @@ import (
 	"fmt"
 	"runtime"
 
-	sqsLib "github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 
-	"github.com/mickamy/go-sqs-worker/internal/sqs"
+	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/message"
 )
 
@@ -58,21 +58,25 @@ type Config struct {
 
 // Producer is a producer of the worker queue
 type Producer struct {
-	client         sqs.Client
+	client         internalSQS.Client
 	workerQueueURL string
 }
 
 // New creates a new Producer
-func New(cfg Config, client *sqsLib.Client) (*Producer, error) {
+func New(cfg Config, client *sqs.Client) (*Producer, error) {
 	if cfg.WorkerQueueURL == "" {
 		return nil, fmt.Errorf("WorkerQueueURL is required")
 	}
 	return &Producer{
-		client:         sqs.New(client),
+		client:         internalSQS.New(client),
 		workerQueueURL: cfg.WorkerQueueURL,
 	}, nil
 }
 
+// Produce produces a message to the worker queue
+// It validates the message and enqueues it to the worker queue
+// If the message is invalid, it returns an error
+// If the enqueue fails, it returns an error
 func (p *Producer) Produce(ctx context.Context, msg message.Message) error {
 	msg = setCaller(msg)
 
@@ -92,6 +96,7 @@ func (p *Producer) Produce(ctx context.Context, msg message.Message) error {
 	return nil
 }
 
+// setCaller sets the caller information of a message
 func setCaller(msg message.Message) message.Message {
 	frame := callerFrame()
 	caller := fmt.Sprintf("%s:%d", frame.File, frame.Line)

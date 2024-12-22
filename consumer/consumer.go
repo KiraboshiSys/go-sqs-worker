@@ -50,10 +50,10 @@ import (
 	"fmt"
 	"math"
 
-	sqsLib "github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 
-	"github.com/mickamy/go-sqs-worker/internal/sqs"
+	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/job"
 	"github.com/mickamy/go-sqs-worker/message"
 )
@@ -110,17 +110,17 @@ type OnProcessFunc func(output Output)
 
 type Consumer struct {
 	config        Config
-	sqsClient     sqs.Client
+	sqsClient     internalSQS.Client
 	getJobFunc    job.GetFunc
 	OnProcessFunc OnProcessFunc
 }
 
 // New creates a new Consumer
-func New(config Config, client *sqsLib.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
-	return newConsumer(config, sqs.New(client), getJobFunc, onProcessFunc)
+func New(config Config, client *sqs.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
+	return newConsumer(config, internalSQS.New(client), getJobFunc, onProcessFunc)
 }
 
-func newConsumer(config Config, client sqs.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
+func newConsumer(config Config, client internalSQS.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
 	if getJobFunc == nil {
 		return nil, fmt.Errorf("getJobFunc is required")
 	}

@@ -20,7 +20,7 @@ func (o Output) FatalError() error {
 }
 
 // NonFatalError returns the error if the output is not fatal, otherwise nil.
-// `NonFatal` means the message was not processed successfully but enqueued to the dead letter queue.
+// `NonFatal` means the message was not processed successfully but enqueued to the dead letter queue successfully.
 func (o Output) NonFatalError() error {
 	if o.Fatal {
 		return nil
