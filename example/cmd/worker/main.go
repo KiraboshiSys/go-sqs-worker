@@ -28,6 +28,7 @@ func main() {
 	jobs := job.Jobs{
 		SuccessfulJob: job.SuccessfulJob{},
 	}
+
 	getJobFunc := func(s string) (jobLib.Job, error) {
 		return job.Get(s, jobs)
 	}

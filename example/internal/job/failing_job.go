@@ -3,6 +3,8 @@ package job
 import (
 	"context"
 	"errors"
+
+	"github.com/mickamy/go-sqs-worker/job"
 )
 
 type FailingJobPayload struct {
@@ -15,3 +17,5 @@ type FailingJob struct {
 func (j FailingJob) Execute(ctx context.Context, payloadStr string) error {
 	return errors.New("failing job failed")
 }
+
+var _ job.Job = (*FailingJob)(nil)

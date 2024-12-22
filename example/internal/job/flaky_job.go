@@ -5,6 +5,8 @@ import (
 	"errors"
 	"math/rand"
 	"time"
+
+	"github.com/mickamy/go-sqs-worker/job"
 )
 
 type FlakyJobPayload struct {
@@ -22,3 +24,5 @@ func (j FlakyJob) Execute(ctx context.Context, payloadStr string) error {
 
 	return nil
 }
+
+var _ job.Job = (*FlakyJob)(nil)

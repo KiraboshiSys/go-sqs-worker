@@ -116,7 +116,7 @@ func main() {
 The repository includes an example project under the example/ directory. To run the example:
 
 ```bash
-docker compose up
+make up
 ```
 
 ## Configuration
@@ -129,5 +129,8 @@ The library uses the following configuration options:
 - **MaxDelay**: Maximum delay (in seconds) between retries (default: 60.0).
 - **WaitTimeSeconds**: Wait time (in seconds) for long polling SQS (default 20).
 
+## Documentation
+GoDoc documentation is available at [pkg.go.dev](https://pkg.go.dev/github.com/mickamy/go-sqs-worker).
+
 ## License
-This library is licensed under the MIT License. See the LICENSE file for details.
+This library is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
