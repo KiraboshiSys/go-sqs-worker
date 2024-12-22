@@ -127,7 +127,7 @@ The library uses the following configuration options:
 - **MaxRetry**: Maximum number of retries for a failed job (default: 3). 
 - **BaseDelay**: Initial delay (in seconds) before retrying a failed job (default: 1.0). 
 - **MaxDelay**: Maximum delay (in seconds) between retries (default: 60.0).
-- **WaitTimeSeconds**: Wait time (in seconds) for long polling SQS (default 20).
+- **WaitTimeSeconds**: Maximum time to wait for a message to be received (default: 20). The maximum is [20 seconds](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html).
 
 ## Documentation
 GoDoc documentation is available at [pkg.go.dev](https://pkg.go.dev/github.com/mickamy/go-sqs-worker).

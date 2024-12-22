@@ -35,7 +35,9 @@ type Config struct {
 	// MaxDelay is the maximum delay time (default 3600)
 	MaxDelay int
 
-	// WaitTimeSeconds is the wait time for long polling (default 20)
+	// WaitTimeSeconds is the maximum time to wait for a message to be received (default 20)
+	// The maximum is 20 seconds
+	// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
 	WaitTimeSeconds int
 }
 
