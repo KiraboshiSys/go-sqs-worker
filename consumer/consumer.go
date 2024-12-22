@@ -38,9 +38,6 @@ To start consuming messages, use the Consumer.Do method:
 To process a single message, use the Consumer.Process method:
 
 	output := c.Process(ctx, messageString)
-	if c.OnProcessFunc != nil {
-	    c.OnProcessFunc(output)
-	}
 */
 package consumer
 
@@ -125,7 +122,7 @@ type Consumer struct {
 	config        Config
 	sqsClient     internalSQS.Client
 	getJobFunc    job.GetFunc
-	OnProcessFunc OnProcessFunc
+	onProcessFunc OnProcessFunc
 }
 
 // New creates a new Consumer
@@ -141,7 +138,7 @@ func newConsumer(config Config, client internalSQS.Client, getJobFunc job.GetFun
 		config:        newConfig(config),
 		sqsClient:     client,
 		getJobFunc:    getJobFunc,
-		OnProcessFunc: onProcessFunc,
+		onProcessFunc: onProcessFunc,
 	}, nil
 }
 
@@ -172,8 +169,8 @@ func (c *Consumer) Do(ctx context.Context) {
 			}
 
 			output := c.Process(ctx, *m)
-			if c.OnProcessFunc != nil {
-				c.OnProcessFunc(output)
+			if c.onProcessFunc != nil {
+				c.onProcessFunc(output)
 			}
 		}
 	}

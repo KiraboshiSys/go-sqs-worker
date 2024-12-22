@@ -15,8 +15,6 @@ var (
 	noop DeleteMessage = func(context.Context) error { return nil }
 )
 
-// Client is a wrapper of [sqs.Client]
-//
 //go:generate mockgen -source=$GOFILE -destination=./mock_$GOPACKAGE/mock_$GOFILE -package=mock_$GOPACKAGE
 type Client interface {
 	Enqueue(ctx context.Context, queueURL, message string) error

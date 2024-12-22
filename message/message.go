@@ -48,6 +48,8 @@ var (
 	validate = validator.New()
 )
 
+// Message represents a job message.
+// The Message struct is used to pass job information between components of the job processing system.
 type Message struct {
 	// ID is the unique identifier of the job
 	ID uuid.UUID `json:"id" validate:"required,uuid"`

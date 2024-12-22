@@ -65,7 +65,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigChan
-	fmt.Println("shutdown signal received, cancelling context")
+	fmt.Println("shutdown signal received, canceling context")
 	cancel()
 
 	wg.Wait()
