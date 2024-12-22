@@ -10,6 +10,8 @@ type Output struct {
 	Fatal   bool
 }
 
+// FatalError returns the error if the output is fatal, otherwise nil.
+// `Fatal` means the message was not processed successfully and failed to enqueue to the dead letter queue.
 func (o Output) FatalError() error {
 	if o.Fatal {
 		return o.Error
@@ -17,6 +19,8 @@ func (o Output) FatalError() error {
 	return nil
 }
 
+// NonFatalError returns the error if the output is not fatal, otherwise nil.
+// `NonFatal` means the message was not processed successfully but enqueued to the dead letter queue.
 func (o Output) NonFatalError() error {
 	if o.Fatal {
 		return nil
@@ -24,12 +28,9 @@ func (o Output) NonFatalError() error {
 	return o.Error
 }
 
-func (o Output) WithMessage(m worker.Message) Output {
-	return Output{
-		Message: m,
-		Error:   o.Error,
-		Fatal:   o.Fatal,
-	}
+func (o Output) withMessage(m worker.Message) Output {
+	o.Message = m
+	return o
 }
 
 func nonFatalOutput(err error) Output {

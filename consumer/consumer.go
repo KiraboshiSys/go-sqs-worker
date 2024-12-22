@@ -129,11 +129,11 @@ func (c *Consumer) Process(ctx context.Context, s string) (out Output) {
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 			return fatalOutput(
 				fmt.Errorf("failed to unmarshal message and send to DLQ: %w", dlqErr),
-			).WithMessage(msg)
+			).withMessage(msg)
 		}
 		return nonFatalOutput(
 			fmt.Errorf("failed to unmarshal message; sent to DLQ successfully: %s", err),
-		).WithMessage(msg)
+		).withMessage(msg)
 	}
 
 	j, err := c.getJobFunc(msg.Type)
@@ -141,11 +141,11 @@ func (c *Consumer) Process(ctx context.Context, s string) (out Output) {
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 			return fatalOutput(
 				fmt.Errorf("failed to get job and send to DLQ. id=[%s], Type=[%s], Caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, dlqErr),
-			).WithMessage(msg)
+			).withMessage(msg)
 		}
 		return nonFatalOutput(
 			fmt.Errorf("failed to get job; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
-		).WithMessage(msg)
+		).withMessage(msg)
 	}
 
 	return c.execute(ctx, j, msg)
@@ -158,21 +158,21 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg worker.Message) O
 			if retryErr := c.retry(ctx, msg); retryErr != nil {
 				return fatalOutput(
 					fmt.Errorf("failed to execute job and retry. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, retryErr),
-				).WithMessage(msg)
+				).withMessage(msg)
 			}
 			return nonFatalOutput(
 				fmt.Errorf("failed to execute job; retried successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
-			).WithMessage(msg)
+			).withMessage(msg)
 		}
 
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 			return fatalOutput(
 				fmt.Errorf("max retry attempts reached; failed to send to DLQ. id=[%s] type=[%s] payload=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Payload, msg.Caller, dlqErr),
-			).WithMessage(msg)
+			).withMessage(msg)
 		}
 		return nonFatalOutput(
 			fmt.Errorf("max retry attempts exceeded; sent to DLQ successfully. id=[%s] type=[%s] caller=[%s]: %w", msg.ID, msg.Type, msg.Caller, err),
-		).WithMessage(msg)
+		).withMessage(msg)
 	}
 	return Output{
 		Message: msg,
