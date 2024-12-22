@@ -15,6 +15,7 @@ import (
 
 	"github.com/mickamy/go-sqs-worker/internal/sqs/mock_sqs"
 	"github.com/mickamy/go-sqs-worker/job"
+	"github.com/mickamy/go-sqs-worker/message"
 )
 
 type jobType string
