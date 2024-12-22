@@ -8,11 +8,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
-// CleanUp is a function to delete the message from SQS
-type CleanUp func(context.Context) error
+// DeleteMessage is a function to delete the message from SQS
+type DeleteMessage func(context.Context) error
 
 var (
-	noop CleanUp = func(context.Context) error { return nil }
+	noop DeleteMessage = func(context.Context) error { return nil }
 )
 
 // Client is a wrapper of [sqs.Client]
@@ -21,7 +21,7 @@ var (
 type Client interface {
 	Enqueue(ctx context.Context, queueURL, message string) error
 	EnqueueWithDelay(ctx context.Context, queueURL, message string, delaySeconds int) error
-	Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, CleanUp, error)
+	Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, DeleteMessage, error)
 }
 
 func New(c *sqs.Client) Client {
@@ -51,7 +51,7 @@ func (c *client) EnqueueWithDelay(ctx context.Context, queueURL, message string,
 	return nil
 }
 
-func (c *client) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, CleanUp, error) {
+func (c *client) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, DeleteMessage, error) {
 	output, err := c.client.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
 		QueueUrl:            aws.String(queueURL),
 		MaxNumberOfMessages: 1,
@@ -65,7 +65,7 @@ func (c *client) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds i
 		return nil, noop, nil
 	}
 
-	var cu CleanUp = func(ctx context.Context) error {
+	var dm DeleteMessage = func(ctx context.Context) error {
 		_, err := c.client.DeleteMessage(ctx, &sqs.DeleteMessageInput{
 			QueueUrl:      aws.String(queueURL),
 			ReceiptHandle: output.Messages[0].ReceiptHandle,
@@ -76,5 +76,5 @@ func (c *client) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds i
 		return nil
 	}
 
-	return output.Messages[0].Body, cu, nil
+	return output.Messages[0].Body, dm, nil
 }

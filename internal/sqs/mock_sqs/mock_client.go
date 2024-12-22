@@ -42,11 +42,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // Dequeue mocks base method.
-func (m *MockClient) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, sqs.CleanUp, error) {
+func (m *MockClient) Dequeue(ctx context.Context, queueURL string, waitTimeSeconds int) (*string, sqs.DeleteMessage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dequeue", ctx, queueURL, waitTimeSeconds)
 	ret0, _ := ret[0].(*string)
-	ret1, _ := ret[1].(sqs.CleanUp)
+	ret1, _ := ret[1].(sqs.DeleteMessage)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

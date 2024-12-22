@@ -156,7 +156,7 @@ func (c *Consumer) Do(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			m, cleanUp, err := c.sqsClient.Dequeue(ctx, c.config.WorkerQueueURL, c.config.WaitTimeSeconds)
+			m, deleteMessage, err := c.sqsClient.Dequeue(ctx, c.config.WorkerQueueURL, c.config.WaitTimeSeconds)
 			if err != nil {
 				// continue processing if dequeue failed
 				continue
@@ -166,8 +166,8 @@ func (c *Consumer) Do(ctx context.Context) {
 				continue
 			}
 
-			// clean up before processing to avoid duplicate processing
-			if err := cleanUp(ctx); err != nil {
+			// delete message before processing to avoid duplicate processing
+			if err := deleteMessage(ctx); err != nil {
 				continue
 			}
 
