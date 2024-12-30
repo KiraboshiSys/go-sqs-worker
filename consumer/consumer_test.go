@@ -169,7 +169,7 @@ func TestConsumer_Process(t *testing.T) {
 			assert.NoError(t, err)
 
 			// act
-			sut, err := newConsumer(cfg, sqsMock, getJob, nil)
+			sut, err := newConsumer(cfg, sqsMock, getJob)
 			assert.NoError(t, err)
 			got := sut.Process(context.Background(), string(bytes))
 
@@ -316,7 +316,7 @@ func TestConsumer_execute(t *testing.T) {
 			testJob := tc.arrange(sqsMock)
 
 			// act
-			sut, err := newConsumer(cfg, sqsMock, getJob, nil)
+			sut, err := newConsumer(cfg, sqsMock, getJob)
 			assert.NoError(t, err)
 			out := sut.execute(context.Background(), testJob, msg)
 
