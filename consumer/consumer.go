@@ -55,6 +55,10 @@ var (
 	validate = validator.New()
 )
 
+// OnProcessFunc is a function type that handles the output of message processing.
+// It is called after a message has been processed, with the resulting Output as its argument.
+type OnProcessFunc func(output Output)
+
 // Config represents the configuration for a Consumer.
 // It includes settings for the worker queue, dead letter queue, retry logic, and SQS-specific options.
 type Config struct {
@@ -113,10 +117,6 @@ func newConfig(c Config) Config {
 	}
 	return c
 }
-
-// OnProcessFunc is a function type that handles the output of message processing.
-// It is called after a message has been processed, with the resulting Output as its argument.
-type OnProcessFunc func(output Output)
 
 // Consumer represents a consumer that retrieves and processes messages from the SQS queue.
 type Consumer struct {

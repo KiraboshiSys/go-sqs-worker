@@ -112,8 +112,12 @@ make up
 ```
 
 ## Configuration
-The library uses the following configuration options:
 
+### Producer Configuration
+- **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
+- **OnProduceFunc**: Optional. A function to execute after a message is produced. The default function does nothing.
+
+### Consumer Configuration
 - **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
 - **DeadLetterQueueURL**: Optional. The URL of the Dead Letter Queue (DLQ) for messages that fail to process after the maximum number of retries. If not set, the DLQ is not used.
 - **MaxRetry**: Optional. The maximum number of retry attempts for a failed job. The default value is 5 retries.
