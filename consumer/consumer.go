@@ -6,7 +6,8 @@ The Output struct represents the result of processing a message, including the m
 Types:
 
   - Config: Configuration for the Consumer, including queue URLs, retry settings, and wait time.
-  - OnProcessFunc: A function type for handling the output of message processing.
+  - BeforeProcessFunc: A function that is executed before processing a message.
+  - AfterProcessFunc: A function that is executed after processing a message.
   - Consumer: Represents a consumer that retrieves and processes messages from the SQS queue.
   - Output: Represents the result of processing a message, including the message itself, any error that occurred, and whether the error is fatal.
 
@@ -22,7 +23,7 @@ Usage:
 
 To create a new consumer, use the New function:
 
-	c, err := consumer.New(config, sqsClient, job.GetJobHandler, onProcessFunc)
+	c, err := consumer.New(config, sqsClient, job.GetJobHandler)
 	if err != nil {
 	    // handle error
 	}
@@ -40,6 +41,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 
@@ -53,11 +55,15 @@ import (
 
 var (
 	validate = validator.New()
+
+	ErrSuccessfullyRetried = errors.New("failed to execute job; retried successfully")
 )
 
-// OnProcessFunc is a function type that handles the output of message processing.
-// It is called after a message has been processed, with the resulting Output as its argument.
-type OnProcessFunc func(output Output)
+// BeforeProcessFunc is a function that is executed before processing a message.
+type BeforeProcessFunc func(ctx context.Context, msg message.Message) error
+
+// AfterProcessFunc is a function that is executed after processing a message.
+type AfterProcessFunc func(ctx context.Context, output Output) error
 
 // Config represents the configuration for a Consumer.
 // It includes settings for the worker queue, dead letter queue, retry logic, and SQS-specific options.
@@ -92,10 +98,15 @@ type Config struct {
 	// For more information, see: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
 	WaitTimeSeconds int
 
-	// OnProcessFunc is a function that handles the output of message processing.
-	// It is called after a message has been processed, with the resulting Output as its argument.
-	// If not set, the default value is nil.
-	OnProcessFunc OnProcessFunc
+	// BeforeProcessFunc is a function that is executed before processing a message.
+	// This function can be used to perform custom logic before processing the message.
+	// If an error is returned, the message will not be processed.
+	BeforeProcessFunc BeforeProcessFunc
+
+	// AfterProcessFunc is a function that is executed after processing a message.
+	// This function can be used to perform custom logic after processing the message.
+	// If an error is returned, the message will be enqueue to the worker queue again.
+	AfterProcessFunc AfterProcessFunc
 }
 
 func (c Config) useDLQ() bool {
@@ -115,6 +126,13 @@ func newConfig(c Config) Config {
 	if c.WaitTimeSeconds == 0 {
 		c.WaitTimeSeconds = 20
 	}
+	if c.BeforeProcessFunc == nil {
+		c.BeforeProcessFunc = func(context.Context, message.Message) error { return nil }
+	}
+	if c.AfterProcessFunc == nil {
+		c.AfterProcessFunc = func(context.Context, Output) error { return nil }
+	}
+
 	return c
 }
 
@@ -168,8 +186,8 @@ func (c *Consumer) Do(ctx context.Context) {
 			}
 
 			output := c.Process(ctx, *m)
-			if c.config.OnProcessFunc != nil {
-				c.config.OnProcessFunc(output)
+			if afterProcessErr := c.afterProcess(ctx, output); afterProcessErr != nil {
+				output = c.retry(ctx, output.Message)
 			}
 		}
 	}
@@ -200,6 +218,10 @@ func (c *Consumer) Process(ctx context.Context, s string) (output Output) {
 		).withMessage(msg)
 	}
 
+	if beforeProcessErr := c.beforeProcess(ctx, msg); beforeProcessErr != nil {
+		return nonFatalOutput(beforeProcessErr).withMessage(msg)
+	}
+
 	j, err := c.getJobFunc(msg.Type)
 	if err != nil {
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
@@ -219,19 +241,7 @@ func (c *Consumer) Process(ctx context.Context, s string) (output Output) {
 func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) Output {
 	if err := j.Execute(ctx, msg.Payload); err != nil {
 		if msg.RetryCount < c.config.MaxRetry {
-			if retryErr := c.retry(ctx, msg); retryErr != nil {
-				if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
-					return fatalOutput(
-						fmt.Errorf("failed to execute job and retry and send to DLQ: %w", dlqErr),
-					).withMessage(msg)
-				}
-				return nonFatalOutput(
-					fmt.Errorf("failed to execute job and retry; sent to DLQ successfully: %w", retryErr),
-				).withMessage(msg)
-			}
-			return nonFatalOutput(
-				fmt.Errorf("failed to execute job; retried successfully: %w", err),
-			).withMessage(msg)
+			return c.retry(ctx, msg)
 		}
 
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
@@ -248,8 +258,23 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) 
 	}
 }
 
-// retry retries a job with exponential backoff
-func (c *Consumer) retry(ctx context.Context, msg message.Message) error {
+// retry retries a job. If the retry fails, it sends the message to the dead letter queue.
+func (c *Consumer) retry(ctx context.Context, msg message.Message) Output {
+	if retryErr := c.doRetry(ctx, msg); retryErr != nil {
+		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
+			return fatalOutput(
+				fmt.Errorf("failed to execute job and retry and send to DLQ: %w", dlqErr),
+			).withMessage(msg)
+		}
+		return nonFatalOutput(
+			fmt.Errorf("failed to execute job and retry; sent to DLQ successfully: %w", retryErr),
+		).withMessage(msg)
+	}
+	return nonFatalOutput(ErrSuccessfullyRetried).withMessage(msg)
+}
+
+// doRetry retries a job with exponential backoff
+func (c *Consumer) doRetry(ctx context.Context, msg message.Message) error {
 	msg.Retry()
 	bytes, err := json.Marshal(msg)
 	if err != nil {
@@ -280,6 +305,20 @@ func (c *Consumer) sendToDLQ(ctx context.Context, msg message.Message) error {
 func (c *Consumer) calculateBackoff(retries int) int {
 	delay := c.config.BaseDelay * math.Pow(2, float64(retries-1))
 	return int(math.Min(delay, float64(c.config.MaxDelay)))
+}
+
+func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error {
+	if err := c.config.BeforeProcessFunc(ctx, msg); err != nil {
+		return fmt.Errorf("before process failed: %w", err)
+	}
+	return nil
+}
+
+func (c *Consumer) afterProcess(ctx context.Context, output Output) error {
+	if err := c.config.AfterProcessFunc(ctx, output); err != nil {
+		return fmt.Errorf("after process failed: %w", err)
+	}
+	return nil
 }
 
 // parse parses a message to a message.Message
