@@ -7,3 +7,5 @@ RUN go mod tidy
 
 WORKDIR /src
 COPY . .
+
+WORKDIR /src/example
