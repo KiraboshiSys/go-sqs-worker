@@ -87,6 +87,11 @@ type Config struct {
 	// If not set, the default value is 20 seconds.
 	// For more information, see: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
 	WaitTimeSeconds int
+
+	// OnProcessFunc is a function that handles the output of message processing.
+	// It is called after a message has been processed, with the resulting Output as its argument.
+	// If not set, the default value is nil.
+	OnProcessFunc OnProcessFunc
 }
 
 func (c Config) useDLQ() bool {
@@ -115,26 +120,24 @@ type OnProcessFunc func(output Output)
 
 // Consumer represents a consumer that retrieves and processes messages from the SQS queue.
 type Consumer struct {
-	config        Config
-	sqsClient     internalSQS.Client
-	getJobFunc    job.GetFunc
-	onProcessFunc OnProcessFunc
+	config     Config
+	sqsClient  internalSQS.Client
+	getJobFunc job.GetFunc
 }
 
 // New creates a new Consumer
-func New(config Config, client *sqs.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
-	return newConsumer(config, internalSQS.New(client), getJobFunc, onProcessFunc)
+func New(config Config, client *sqs.Client, getJobFunc job.GetFunc) (*Consumer, error) {
+	return newConsumer(config, internalSQS.New(client), getJobFunc)
 }
 
-func newConsumer(config Config, client internalSQS.Client, getJobFunc job.GetFunc, onProcessFunc OnProcessFunc) (*Consumer, error) {
+func newConsumer(config Config, client internalSQS.Client, getJobFunc job.GetFunc) (*Consumer, error) {
 	if getJobFunc == nil {
 		return nil, fmt.Errorf("getJobFunc is required")
 	}
 	return &Consumer{
-		config:        newConfig(config),
-		sqsClient:     client,
-		getJobFunc:    getJobFunc,
-		onProcessFunc: onProcessFunc,
+		config:     newConfig(config),
+		sqsClient:  client,
+		getJobFunc: getJobFunc,
 	}, nil
 }
 
@@ -165,8 +168,8 @@ func (c *Consumer) Do(ctx context.Context) {
 			}
 
 			output := c.Process(ctx, *m)
-			if c.onProcessFunc != nil {
-				c.onProcessFunc(output)
+			if c.config.OnProcessFunc != nil {
+				c.config.OnProcessFunc(output)
 			}
 		}
 	}

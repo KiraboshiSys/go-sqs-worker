@@ -89,15 +89,7 @@ func main() {
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 	}
 
-	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler, func(output consumer.Output) {
-		if fatalErr := output.FatalError(); fatalErr != nil {
-			fmt.Println("fatal error occurred", "error", fatalErr, "message", output.Message)
-		} else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {
-			fmt.Println("non-fatal error occurred", "error", nonFatalErr, "message", output.Message)
-		} else {
-			fmt.Println("message processed successfully", "message", output.Message)
-		}
-	})
+	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler)
 
 	if err != nil {
 		fmt.Println("failed to create consumer", "error", err)
@@ -128,6 +120,7 @@ The library uses the following configuration options:
 - **BaseDelay**: Optional. The initial delay (in seconds) before retrying a failed job. This value is used as the base for calculating exponential backoff delays. The default value is 30 seconds.
 - **MaxDelay**: Optional. The maximum delay (in seconds) between retries, used to cap the exponential backoff delay. The default value is 3600 seconds (1 hour).
 - **WaitTimeSeconds**: Optional. The maximum time (in seconds) to wait for a message to be received from the SQS queue. This value is used for long polling. The default value is 20 seconds. The maximum allowed value is [20 seconds](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html).
+- **OnProcessFunc**: Optional. A function to execute after a message is processed. The default function does nothing.
 
 ## Documentation
 GoDoc documentation is available at [pkg.go.dev](https://pkg.go.dev/github.com/mickamy/go-sqs-worker).
