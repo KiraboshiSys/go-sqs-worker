@@ -113,6 +113,10 @@ func (c Config) useDLQ() bool {
 	return c.DeadLetterQueueURL != ""
 }
 
+func (c Config) useRedis() bool {
+	return c.RedisURL != ""
+}
+
 func newConfig(c Config) Config {
 	if c.MaxRetry == 0 {
 		c.MaxRetry = 5
