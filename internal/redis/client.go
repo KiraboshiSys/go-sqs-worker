@@ -95,12 +95,12 @@ func (c Client) UpdateStatus(ctx context.Context, msg message.Message) error {
 
 func messageToMap(msg message.Message) map[string]string {
 	return map[string]string{
-		"type":       msg.Type,
-		"payload":    msg.Payload,
-		"retryCount": strconv.Itoa(msg.RetryCount),
-		"caller":     msg.Caller,
-		"createdAt":  msg.CreatedAt.Format(time.RFC3339),
-		"updatedAt":  msg.UpdatedAt.Format(time.RFC3339),
+		"type":        msg.Type,
+		"payload":     msg.Payload,
+		"retry_count": strconv.Itoa(msg.RetryCount),
+		"caller":      msg.Caller,
+		"created_at":  msg.CreatedAt.Format(time.RFC3339),
+		"updated_at":  msg.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -119,7 +119,7 @@ func mapToMessage(m map[string]string) (message.Message, error) {
 		return msg, fmt.Errorf("payload is required")
 	}
 
-	if v, ok := m["retryCount"]; ok {
+	if v, ok := m["retry_count"]; ok {
 		cnt, err := strconv.Atoi(v)
 		if err != nil {
 			return msg, fmt.Errorf("failed to convert retryCount: %w", err)
@@ -135,7 +135,7 @@ func mapToMessage(m map[string]string) (message.Message, error) {
 		return msg, fmt.Errorf("caller is required")
 	}
 
-	if v, ok := m["createdAt"]; ok {
+	if v, ok := m["created_at"]; ok {
 		at, err := time.Parse(timeLayout, v)
 		if err != nil {
 			return msg, fmt.Errorf("failed to parse createdAt: %w", err)
@@ -145,7 +145,7 @@ func mapToMessage(m map[string]string) (message.Message, error) {
 		return msg, fmt.Errorf("createdAt is required")
 	}
 
-	if v, ok := m["updatedAt"]; ok {
+	if v, ok := m["updated_at"]; ok {
 		at, err := time.Parse(timeLayout, v)
 		if err != nil {
 			return msg, fmt.Errorf("failed to parse updatedAt: %w", err)
