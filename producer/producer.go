@@ -86,7 +86,7 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	msg = setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
-		return fmt.Errorf("validation failed: %v", err)
+		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	bytes, err := json.Marshal(msg)
