@@ -11,18 +11,34 @@ import (
 
 	"github.com/mickamy/go-sqs-worker/consumer"
 	jobLib "github.com/mickamy/go-sqs-worker/job"
+	"github.com/mickamy/go-sqs-worker/message"
 
 	"github.com/mickamy/go-sqs-worker-example/internal/job"
 	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
 )
 
 func main() {
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		fmt.Println("REDIS_URL is required")
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	cfg := consumer.Config{
 		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
+		RedisURL:           redisURL,
+		BeforeProcessFunc: func(ctx context.Context, msg message.Message) error {
+			fmt.Println("before process", "message", msg)
+			return nil
+		},
+		AfterProcessFunc: func(ctx context.Context, output consumer.Output) error {
+			fmt.Println("after process", "output", output)
+			return nil
+		},
 	}
 
 	jobs := job.Jobs{
@@ -33,15 +49,7 @@ func main() {
 		return job.Get(s, jobs)
 	}
 
-	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), getJobFunc, func(output consumer.Output) {
-		if fatalErr := output.FatalError(); fatalErr != nil {
-			fmt.Println("fatal error occurred", "error", fatalErr, "message", output.Message)
-		} else if nonFatalErr := output.NonFatalError(); nonFatalErr != nil {
-			fmt.Println("non-fatal error occurred", "error", nonFatalErr, "message", output.Message)
-		} else {
-			fmt.Println("message processed successfully", "message", output.Message)
-		}
-	})
+	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), getJobFunc)
 	if err != nil {
 		fmt.Println("failed to create consumer", "error", err)
 		os.Exit(1)

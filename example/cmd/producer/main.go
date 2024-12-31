@@ -16,6 +16,12 @@ import (
 )
 
 func main() {
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		fmt.Println("REDIS_URL is required")
+		return
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -38,6 +44,7 @@ func main() {
 
 	cfg := producer.Config{
 		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+		RedisURL:       redisURL,
 	}
 
 	p, err := producer.New(cfg, aws.NewSQSClient(ctx))
