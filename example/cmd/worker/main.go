@@ -31,6 +31,9 @@ func main() {
 		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 		RedisURL:           redisURL,
+		MaxRetry:           3,
+		BaseDelay:          1,
+		MaxDelay:           10,
 		BeforeProcessFunc: func(ctx context.Context, msg message.Message) error {
 			return nil
 		},

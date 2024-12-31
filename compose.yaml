@@ -19,7 +19,6 @@ services:
       context: .
     environment:
       - REDIS_URL=redis://:password@redis:6379/0
-      - GOMAXPROCS=2
     command: go run /src/example/cmd/worker/main.go
     volumes:
       - .:/src:cached
