@@ -57,6 +57,7 @@ services:
       - "6379:6379"
     environment:
       REDIS_PASSWORD: password
+    command: ["redis-server", "--requirepass", "password"]
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 1s
