@@ -37,6 +37,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
@@ -79,7 +80,10 @@ func New(cfg Config, client *sqs.Client) (*Producer, error) {
 		return nil, fmt.Errorf("WorkerQueueURL is required")
 	}
 	if cfg.RedisURL != "" {
-		rds, err := redis.New(cfg.RedisURL)
+		rds, err := redis.New(redis.Config{
+			URL: cfg.RedisURL,
+			TTL: time.Hour * 24,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Redis client: %w", err)
 		}

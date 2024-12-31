@@ -44,6 +44,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
@@ -168,7 +169,10 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 	}
 	cfg = newConfig(cfg)
 	if cfg.useRedis() {
-		redisClient, err := redis.New(cfg.RedisURL)
+		rds, err := redis.New(redis.Config{
+			URL: cfg.RedisURL,
+			TTL: time.Hour * 24,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Redis client: %w", err)
 		}
@@ -176,7 +180,7 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 			cfg:        cfg,
 			sqsClient:  client,
 			getJobFunc: getJobFunc,
-			redis:      redisClient,
+			redis:      rds,
 		}, nil
 	}
 	return &Consumer{
