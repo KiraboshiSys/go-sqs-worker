@@ -17,26 +17,49 @@ const (
 	timeLayout  = time.RFC3339
 )
 
+type Config struct {
+	URL string
+	TTL time.Duration
+}
+
 type Client struct {
+	cfg    Config
 	client *redis.Client
 }
 
-func New(url string) (*Client, error) {
-	opts, err := redis.ParseURL(url)
+func New(cfg Config) (*Client, error) {
+	opts, err := redis.ParseURL(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
+	if cfg.TTL == time.Duration(0) {
+		cfg.TTL = time.Hour * 24
+	}
 	return &Client{
+		cfg:    cfg,
 		client: redis.NewClient(opts),
 	}, nil
 }
 
 func (c Client) SetMessage(ctx context.Context, msg message.Message) error {
-	return c.client.HSet(ctx, keyOfMessage(msg), messageToMap(msg)).Err()
+	key := keyOfMessage(msg)
+	err := c.client.HSet(ctx, key, messageToMap(msg)).Err()
+	if err != nil {
+		return fmt.Errorf("failed to set message: %w", err)
+	}
+
+	if err := c.client.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
+		return fmt.Errorf("failed to set TTL: %w", err)
+	}
+
+	return nil
 }
 
 func (c Client) DeleteMessage(ctx context.Context, msg message.Message) error {
-	return c.client.HDel(ctx, keyOfMessage(msg)).Err()
+	if err := c.client.HDel(ctx, keyOfMessage(msg)).Err(); err != nil {
+		return fmt.Errorf("failed to delete message: %w", err)
+	}
+	return nil
 }
 
 func (c Client) ListMessages(ctx context.Context) ([]message.Message, error) {
@@ -63,7 +86,11 @@ func (c Client) ListMessages(ctx context.Context) ([]message.Message, error) {
 }
 
 func (c Client) UpdateStatus(ctx context.Context, msg message.Message) error {
-	return c.client.HSet(ctx, keyOfMessage(msg), "status", msg.Status.String()).Err()
+	err := c.client.HSet(ctx, keyOfMessage(msg), "status", msg.Status.String()).Err()
+	if err != nil {
+		return fmt.Errorf("failed to update status: %w", err)
+	}
+	return nil
 }
 
 func messageToMap(msg message.Message) map[string]string {
