@@ -36,7 +36,8 @@ func main() {
 
 	failingJobTicker := time.NewTicker(3 * time.Second)
 	flakyJobTicker := time.NewTicker(5 * time.Second)
-	successfulJobTicker := time.NewTicker(7 * time.Second)
+	heavyJobTicker := time.NewTicker(7 * time.Second)
+	successfulJobTicker := time.NewTicker(11 * time.Second)
 
 	defer failingJobTicker.Stop()
 	defer flakyJobTicker.Stop()
@@ -45,6 +46,9 @@ func main() {
 	cfg := producer.Config{
 		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		RedisURL:       redisURL,
+		OnProduceFunc: func(msg message.Message) {
+			// do something after producing a message
+		},
 	}
 
 	p, err := producer.New(cfg, aws.NewSQSClient(ctx))
@@ -70,7 +74,6 @@ func main() {
 				fmt.Println("failed to produce failing job", "error", err)
 				continue
 			}
-
 		case <-flakyJobTicker.C:
 			msg, err := message.New(ctx, job.FlakyJobType.String(), job.FlakyJobPayload{
 				Message: "hello flaky job",
@@ -81,6 +84,18 @@ func main() {
 			}
 			if err := p.Do(ctx, msg); err != nil {
 				fmt.Println("failed to produce flaky job", "error", err)
+				continue
+			}
+		case <-heavyJobTicker.C:
+			msg, err := message.New(ctx, job.HeavyJobType.String(), job.HeavyJobPayload{
+				Message: "hello heavy job",
+			})
+			if err != nil {
+				fmt.Println("failed to create heavy job message", "error", err)
+				continue
+			}
+			if err := p.Do(ctx, msg); err != nil {
+				fmt.Println("failed to produce heavy job", "error", err)
 				continue
 			}
 		case <-successfulJobTicker.C:

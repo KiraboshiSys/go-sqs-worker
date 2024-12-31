@@ -32,16 +32,17 @@ func main() {
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 		RedisURL:           redisURL,
 		BeforeProcessFunc: func(ctx context.Context, msg message.Message) error {
-			fmt.Println("before process", "message", msg)
 			return nil
 		},
 		AfterProcessFunc: func(ctx context.Context, output consumer.Output) error {
-			fmt.Println("after process", "output", output)
 			return nil
 		},
 	}
 
 	jobs := job.Jobs{
+		FailingJob:    job.FailingJob{},
+		FlakyJob:      job.FlakyJob{},
+		HeavyJob:      job.HeavyJob{},
 		SuccessfulJob: job.SuccessfulJob{},
 	}
 
