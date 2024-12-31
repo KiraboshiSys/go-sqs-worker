@@ -31,7 +31,7 @@ func New(url string) (*Client, error) {
 	}, nil
 }
 
-func (c Client) AddMessage(ctx context.Context, msg message.Message) error {
+func (c Client) SetMessage(ctx context.Context, msg message.Message) error {
 	return c.client.HSet(ctx, keyOfMessage(msg), messageToMap(msg)).Err()
 }
 
