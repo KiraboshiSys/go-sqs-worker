@@ -13,7 +13,7 @@ import (
 
 const (
 	messagesKey = "messages"
-	statusesKey = messagesKey + ":statuses"
+	statusesKey = "statuses"
 	timeLayout  = time.RFC3339
 )
 
@@ -42,7 +42,7 @@ func New(cfg Config) (*Client, error) {
 }
 
 func (c Client) SetMessage(ctx context.Context, msg message.Message) error {
-	key := keyOfMessage(msg)
+	key := fmt.Sprintf("%s:%s", messagesKey, msg.ID)
 	err := c.client.HSet(ctx, key, messageToMap(msg)).Err()
 	if err != nil {
 		return fmt.Errorf("failed to set message: %w", err)
@@ -59,14 +59,20 @@ func (c Client) UpdateStatus(ctx context.Context, msg message.Message) error {
 }
 
 func (c Client) addStatus(ctx context.Context, msg message.Message) error {
-	member := memberOfMessage(msg)
-	if err := c.client.ZAdd(ctx, statusesKey, redis.Z{
-		Score:  float64(msg.CreatedAt.Unix()),
-		Member: member,
-	}).Err(); err != nil {
-		return fmt.Errorf("failed to set message: %w", err)
+	key := fmt.Sprintf("%s:%s", statusesKey, msg.ID)
+	if err := c.client.LPush(ctx, key, msg.Status.String()).Err(); err != nil {
+		return fmt.Errorf("failed to add status: %w", err)
 	}
-	return c.setTTL(ctx, member)
+
+	if err := c.client.LTrim(ctx, key, 0, 0).Err(); err != nil {
+		return fmt.Errorf("failed to trim status: %w", err)
+	}
+
+	if err := c.client.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
+		return fmt.Errorf("failed to set TTL: %w", err)
+	}
+
+	return nil
 }
 
 func (c Client) setTTL(ctx context.Context, key string) error {
@@ -139,16 +145,4 @@ func mapToMessage(m map[string]string) (message.Message, error) {
 	}
 
 	return msg, nil
-}
-
-func keyOfMessage(msg message.Message) string {
-	return keyOfMessageID(msg.ID.String())
-}
-
-func keyOfMessageID(id string) string {
-	return messagesKey + ":" + id
-}
-
-func memberOfMessage(msg message.Message) string {
-	return messagesKey + ":" + msg.ID.String() + ":" + msg.Status.String()
 }
