@@ -49,6 +49,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/mickamy/go-sqs-worker/internal/ptr"
+	"github.com/mickamy/go-sqs-worker/internal/redis"
 	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/job"
 	"github.com/mickamy/go-sqs-worker/message"
@@ -78,6 +79,13 @@ type Config struct {
 	// If not set, the dead letter queue is not used.
 	// Messages that fail to process after the maximum number of retries are sent to this queue.
 	DeadLetterQueueURL string
+
+	// RedisURL is the URL of the Redis server.
+	// If set, data will be stored both before and after message processing.
+	// This is particularly useful for tracking job-related data during processing, especially when used with [go-sqs-worker-viewer].
+	//
+	// [go-sqs-worker-viewer]: https://github.com/mickamy/go-sqs-worker-viewer
+	RedisURL string
 
 	// MaxRetry is the maximum number of retries for a failed job.
 	// If not set, the default value is 5 retries.
@@ -146,6 +154,7 @@ type Consumer struct {
 	cfg        Config
 	sqsClient  internalSQS.Client
 	getJobFunc job.GetFunc
+	redis      *redis.Client
 }
 
 // New creates a new Consumer
@@ -158,6 +167,18 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 		return nil, fmt.Errorf("getJobFunc is required")
 	}
 	cfg = newConfig(cfg)
+	if cfg.useRedis() {
+		redisClient, err := redis.New(cfg.RedisURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Redis client: %w", err)
+		}
+		return &Consumer{
+			cfg:        cfg,
+			sqsClient:  client,
+			getJobFunc: getJobFunc,
+			redis:      redisClient,
+		}, nil
+	}
 	return &Consumer{
 		cfg:        cfg,
 		sqsClient:  client,
@@ -330,14 +351,24 @@ func (c *Consumer) calculateBackoff(retries int) int {
 }
 
 func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error {
-	if err := c.config.BeforeProcessFunc(ctx, msg); err != nil {
+	if c.cfg.useRedis() {
+		if err := c.redis.UpdateStatus(ctx, msg.Processing()); err != nil {
+			return fmt.Errorf("failed to update status to processing: %w", err)
+		}
+	}
+	if err := c.cfg.BeforeProcessFunc(ctx, msg); err != nil {
 		return fmt.Errorf("before process failed: %w", err)
 	}
 	return nil
 }
 
 func (c *Consumer) afterProcess(ctx context.Context, output Output) error {
-	if err := c.config.AfterProcessFunc(ctx, output); err != nil {
+	if c.cfg.useRedis() {
+		if err := c.redis.UpdateStatus(ctx, output.Message); err != nil {
+			return fmt.Errorf("failed to update status after processing: %w", err)
+		}
+	}
+	if err := c.cfg.AfterProcessFunc(ctx, output); err != nil {
 		return fmt.Errorf("after process failed: %w", err)
 	}
 	return nil
