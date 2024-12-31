@@ -42,13 +42,6 @@ func (j testJob) Execute(ctx context.Context, payloadStr string) error {
 	return nil
 }
 
-func must[T any](val T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return val
-}
-
 func caller() string {
 	pcs := [13]uintptr{}
 	length := runtime.Callers(1, pcs[:])
@@ -152,11 +145,12 @@ func TestConsumer_Process(t *testing.T) {
 			defer ctrl.Finish()
 
 			msg := message.Message{
-				ID:         must(uuid.NewUUID()),
-				Type:       string(testJobType),
-				Caller:     caller(),
-				CreatedAt:  time.Now(),
-				RetryCount: 0,
+				ID:        uuid.New(),
+				Type:      string(testJobType),
+				Status:    message.Queued,
+				Caller:    caller(),
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
 			}
 			if tc.arrangeMessage != nil {
 				tc.arrangeMessage(&msg)
@@ -303,7 +297,7 @@ func TestConsumer_execute(t *testing.T) {
 			defer ctrl.Finish()
 
 			msg := message.Message{
-				ID:        must(uuid.NewUUID()),
+				ID:        uuid.New(),
 				Type:      string(testJobType),
 				Caller:    caller(),
 				CreatedAt: time.Now(),
