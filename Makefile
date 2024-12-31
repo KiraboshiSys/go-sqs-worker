@@ -2,7 +2,8 @@
 	up \
 	down \
 	build \
-	install-deps \
+	build-v \
+	install \
 	gen \
 	lint \
 	test \
@@ -12,6 +13,9 @@ up: down ## Start the Docker containers
 
 down: ## Stop the Docker containers
 	docker compose down
+
+down-v: ## Stop the Docker containers and remove volumes
+	docker compose down -v
 
 build: ## Build the Docker images
 	docker compose build

@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -14,6 +13,7 @@ import (
 
 const (
 	messagesKey = "messages"
+	statusesKey = messagesKey + ":statuses"
 	timeLayout  = time.RFC3339
 )
 
@@ -47,48 +47,31 @@ func (c Client) SetMessage(ctx context.Context, msg message.Message) error {
 	if err != nil {
 		return fmt.Errorf("failed to set message: %w", err)
 	}
-
-	if err := c.client.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
-		return fmt.Errorf("failed to set TTL: %w", err)
+	if err := c.setTTL(ctx, key); err != nil {
+		return err
 	}
 
-	return nil
-}
-
-func (c Client) DeleteMessage(ctx context.Context, msg message.Message) error {
-	if err := c.client.HDel(ctx, keyOfMessage(msg)).Err(); err != nil {
-		return fmt.Errorf("failed to delete message: %w", err)
-	}
-	return nil
-}
-
-func (c Client) ListMessages(ctx context.Context) ([]message.Message, error) {
-	vals, err := c.client.HGetAll(ctx, messagesKey).Result()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get messages: %w", err)
-	}
-
-	var msgs []message.Message
-	for _, val := range vals {
-		msgMap := map[string]string{}
-		if err := json.Unmarshal([]byte(val), &msgMap); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal message: %w", err)
-		}
-
-		msg, err := mapToMessage(msgMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert map to message: %w", err)
-		}
-
-		msgs = append(msgs, msg)
-	}
-	return msgs, nil
+	return c.addStatus(ctx, msg)
 }
 
 func (c Client) UpdateStatus(ctx context.Context, msg message.Message) error {
-	err := c.client.HSet(ctx, keyOfMessage(msg), "status", msg.Status.String()).Err()
-	if err != nil {
-		return fmt.Errorf("failed to update status: %w", err)
+	return c.addStatus(ctx, msg)
+}
+
+func (c Client) addStatus(ctx context.Context, msg message.Message) error {
+	member := memberOfMessage(msg)
+	if err := c.client.ZAdd(ctx, statusesKey, redis.Z{
+		Score:  float64(msg.CreatedAt.Unix()),
+		Member: member,
+	}).Err(); err != nil {
+		return fmt.Errorf("failed to set message: %w", err)
+	}
+	return c.setTTL(ctx, member)
+}
+
+func (c Client) setTTL(ctx context.Context, key string) error {
+	if err := c.client.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
+		return fmt.Errorf("failed to set TTL: %w", err)
 	}
 	return nil
 }
@@ -164,4 +147,8 @@ func keyOfMessage(msg message.Message) string {
 
 func keyOfMessageID(id string) string {
 	return messagesKey + ":" + id
+}
+
+func memberOfMessage(msg message.Message) string {
+	return messagesKey + ":" + msg.ID.String() + ":" + msg.Status.String()
 }
