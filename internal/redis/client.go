@@ -59,17 +59,21 @@ func (c Client) UpdateStatus(ctx context.Context, msg message.Message) error {
 }
 
 func (c Client) addStatus(ctx context.Context, msg message.Message) error {
-	key := fmt.Sprintf("%s:%s", statusesKey, msg.ID)
-	if err := c.client.LPush(ctx, key, msg.Status.String()).Err(); err != nil {
-		return fmt.Errorf("failed to add status: %w", err)
+	pattern := fmt.Sprintf("%s:%s:*", statusesKey, msg.ID)
+	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
+	for iter.Next(ctx) {
+		if err := c.client.Del(ctx, iter.Val()).Err(); err != nil {
+			return fmt.Errorf("failed to delete old status: %w", err)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("failed to scan for keys: %w", err)
 	}
 
-	if err := c.client.LTrim(ctx, key, 0, 0).Err(); err != nil {
-		return fmt.Errorf("failed to trim status: %w", err)
-	}
-
-	if err := c.client.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
-		return fmt.Errorf("failed to set TTL: %w", err)
+	key := fmt.Sprintf("%s:%s:%s", statusesKey, msg.ID, msg.Status.String())
+	value := "" // value may be empty because we only need the key
+	if err := c.client.Set(ctx, key, value, c.cfg.TTL).Err(); err != nil {
+		return fmt.Errorf("failed to set status: %w", err)
 	}
 
 	return nil
