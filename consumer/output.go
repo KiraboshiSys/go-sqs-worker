@@ -39,12 +39,6 @@ func (o Output) withMessage(m message.Message) Output {
 	return o
 }
 
-// withStatus sets the status in the message and returns the updated output.
-func (o Output) withStatus(status message.Status) Output {
-	o.Message.Status = status
-	return o
-}
-
 // nonFatalOutput creates an Output with a non-fatal error.
 func nonFatalOutput(err error) Output {
 	return Output{Error: err}
