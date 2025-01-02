@@ -90,6 +90,7 @@ func messageToMap(msg message.Message) map[string]string {
 	return map[string]string{
 		"type":        msg.Type,
 		"payload":     msg.Payload,
+		"status":      msg.Status.String(),
 		"retry_count": strconv.Itoa(msg.RetryCount),
 		"caller":      msg.Caller,
 		"created_at":  msg.CreatedAt.Format(time.RFC3339),
