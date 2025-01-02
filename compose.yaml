@@ -29,6 +29,15 @@ services:
     networks:
       - default
 
+  viewer:
+    image: mickamy/go-sqs-worker-viewer
+    environment:
+      - REDIS_URL=redis://:password@redis:6379/0
+    ports:
+      - "3000:3000"
+    networks:
+      - default
+
   localstack:
     image: localstack/localstack
     ports:

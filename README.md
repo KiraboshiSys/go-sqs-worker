@@ -111,6 +111,23 @@ The repository includes an example project under the example/ directory. To run 
 make up
 ```
 
+## Integration with go-sqs-worker-viewer
+
+For monitoring and managing jobs in real-time, use [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer). Configure RedisURL in the consumer/producer to enable integration:
+
+```
+consumer.Config{
+    // ... other configurations
+    RedisURL: "redis://localhost:6379",
+}
+producer.Config{
+    // ... other configurations
+    RedisURL: "redis://localhost:6379",
+}
+```
+
+This setup allows go-sqs-worker-viewer to display job statuses and processing metrics.
+
 ## Configuration
 
 ### Producer Configuration
