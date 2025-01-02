@@ -54,10 +54,6 @@ func (c Client) SetMessage(ctx context.Context, msg message.Message) error {
 	return c.addStatus(ctx, msg)
 }
 
-func (c Client) UpdateStatus(ctx context.Context, msg message.Message) error {
-	return c.addStatus(ctx, msg)
-}
-
 func (c Client) addStatus(ctx context.Context, msg message.Message) error {
 	pattern := fmt.Sprintf("%s:%s:*", statusesKey, msg.ID)
 	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
