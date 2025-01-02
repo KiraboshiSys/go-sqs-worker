@@ -11,8 +11,12 @@ Types:
 
 Functions:
 
-  - Message.Retry: Increments the RetryCount of the Message.
   - Message.SetCaller: Sets the Caller field of the Message.
+  - Message.SetStatus: Sets the Status field of the Message.
+  - Message.Processing: Returns a new Message with the status set to Processing.
+  - Message.Retrying: Returns a new Message with the status set to Retrying.
+  - Message.Success: Returns a new Message with the status set to Success.
+  - Message.Failed: Returns a new Message with the status set to Failed.
   - New: Creates a new Message with the given type and payload, and validates the payload.
 
 Usage:
@@ -44,6 +48,20 @@ import (
 	"github.com/google/uuid"
 )
 
+type Status string
+
+const (
+	Queued     Status = "queued"
+	Processing Status = "processing"
+	Retrying   Status = "retrying"
+	Success    Status = "success"
+	Failed     Status = "failed"
+)
+
+func (s Status) String() string {
+	return string(s)
+}
+
 var (
 	validate = validator.New()
 )
@@ -60,6 +78,9 @@ type Message struct {
 	// Payload is the data to be passed to the job
 	Payload string `json:"payload" validate:"-"`
 
+	// Status is the current status of the job
+	Status Status `json:"status" validate:"required"`
+
 	// RetryCount is the number of times the job has been retried
 	RetryCount int `json:"retry_count" validate:"-"`
 
@@ -68,32 +89,91 @@ type Message struct {
 
 	// CreatedAt is the time the job was created
 	CreatedAt time.Time `json:"created_at" validate:"required"`
-}
 
-// Retry increments the RetryCount of the job
-func (m *Message) Retry() {
-	m.RetryCount++
+	// UpdatedAt is the time the job was last updated
+	UpdatedAt time.Time `json:"updated_at" validate:"required"`
 }
 
 // SetCaller sets the Caller of the job
 func (m *Message) SetCaller(caller string) {
 	m.Caller = caller
+	m.UpdatedAt = time.Now()
+}
+
+// SetStatus sets the Status of the job
+func (m *Message) SetStatus(status Status) {
+	m.Status = status
+	m.UpdatedAt = time.Now()
+}
+
+func (m *Message) Processing() Message {
+	return Message{
+		ID:         m.ID,
+		Type:       m.Type,
+		Payload:    m.Payload,
+		Status:     Processing,
+		RetryCount: m.RetryCount,
+		Caller:     m.Caller,
+		CreatedAt:  m.CreatedAt,
+		UpdatedAt:  time.Now(),
+	}
+}
+
+func (m *Message) Retrying() Message {
+	return Message{
+		ID:         m.ID,
+		Type:       m.Type,
+		Payload:    m.Payload,
+		Status:     Retrying,
+		RetryCount: m.RetryCount + 1,
+		Caller:     m.Caller,
+		CreatedAt:  m.CreatedAt,
+		UpdatedAt:  time.Now(),
+	}
+}
+
+func (m *Message) Success() Message {
+	return Message{
+		ID:         m.ID,
+		Type:       m.Type,
+		Payload:    m.Payload,
+		Status:     Success,
+		RetryCount: m.RetryCount,
+		Caller:     m.Caller,
+		CreatedAt:  m.CreatedAt,
+		UpdatedAt:  time.Now(),
+	}
+}
+
+func (m *Message) Failed() Message {
+	return Message{
+		ID:         m.ID,
+		Type:       m.Type,
+		Payload:    m.Payload,
+		Status:     Failed,
+		RetryCount: m.RetryCount,
+		Caller:     m.Caller,
+		CreatedAt:  m.CreatedAt,
+		UpdatedAt:  time.Now(),
+	}
 }
 
 // New creates a new Message
 func New(ctx context.Context, jobType string, payload any) (Message, error) {
-	id := uuid.New()
 	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return Message{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
-	if err := validate.StructCtx(ctx, payload); err != nil {
-		return Message{}, fmt.Errorf("validation failed: %v", err)
+	if validationErr := validate.StructCtx(ctx, payload); validationErr != nil {
+		return Message{}, fmt.Errorf("validation failed: %w", validationErr)
 	}
 	return Message{
-		ID:        id,
-		Type:      jobType,
-		Payload:   string(bytes),
-		CreatedAt: time.Now(),
+		ID:         uuid.New(),
+		Type:       jobType,
+		Payload:    string(bytes),
+		Status:     Queued,
+		RetryCount: 0,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}, nil
 }

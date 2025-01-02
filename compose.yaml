@@ -1,8 +1,9 @@
 services:
-
   producer:
     build:
       context: .
+    environment:
+      - REDIS_URL=redis://:password@redis:6379/0
     command: go run /src/example/cmd/producer/main.go
     volumes:
       - .:/src:cached
@@ -16,15 +17,24 @@ services:
   worker:
     build:
       context: .
+    environment:
+      - REDIS_URL=redis://:password@redis:6379/0
     command: go run /src/example/cmd/worker/main.go
     volumes:
       - .:/src:cached
       - go:/go
-    environment:
-      GOMAXPROCS: 2
     depends_on:
       localstack:
         condition: service_healthy
+    networks:
+      - default
+
+  viewer:
+    image: mickamy/go-sqs-worker-viewer
+    environment:
+      - REDIS_URL=redis://:password@redis:6379/0
+    ports:
+      - "3000:3000"
     networks:
       - default
 
@@ -47,5 +57,23 @@ services:
     networks:
       - default
 
+  redis:
+    image: redis:7.4.1-alpine
+    volumes:
+      - redis:/data
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: password
+    command: ["redis-server", "--requirepass", "password"]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      default:
+
 volumes:
   go:
+  redis:

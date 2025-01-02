@@ -2,7 +2,8 @@
 	up \
 	down \
 	build \
-	install-deps \
+	build-v \
+	install \
 	gen \
 	lint \
 	test \
@@ -12,6 +13,9 @@ up: down ## Start the Docker containers
 
 down: ## Stop the Docker containers
 	docker compose down
+
+down-v: ## Stop the Docker containers and remove volumes
+	docker compose down -v
 
 build: ## Build the Docker images
 	docker compose build
@@ -25,6 +29,7 @@ install: ## Install dependencies
 gen: ## Execute Go generate commands to process source code annotations
 	find ./ -type d -name "mock_*" -exec rm -r {} +
 	go generate ./...
+	cd example && go generate ./...
 
 lint: ## Run linters (vet and staticcheck)
 	go vet ./...

@@ -11,13 +11,14 @@ func _() {
 	_ = x[first-0]
 	_ = x[FailingJobType-1]
 	_ = x[FlakyJobType-2]
-	_ = x[SuccessfulJobType-3]
-	_ = x[last-4]
+	_ = x[HeavyJobType-3]
+	_ = x[SuccessfulJobType-4]
+	_ = x[last-5]
 }
 
-const _jobType_name = "firstFailingJobTypeFlakyJobTypeSuccessfulJobTypelast"
+const _jobType_name = "firstFailingJobTypeFlakyJobTypeHeavyJobTypeSuccessfulJobTypelast"
 
-var _jobType_index = [...]uint8{0, 5, 19, 31, 48, 52}
+var _jobType_index = [...]uint8{0, 5, 19, 31, 43, 60, 64}
 
 func (i jobType) String() string {
 	if i < 0 || i >= jobType(len(_jobType_index)-1) {

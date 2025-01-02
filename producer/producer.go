@@ -37,10 +37,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 
+	"github.com/mickamy/go-sqs-worker/internal/redis"
 	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/message"
 )
@@ -57,6 +59,10 @@ type Config struct {
 	// WorkerQueueURL is the URL of the message queue
 	WorkerQueueURL string
 
+	// RedisURL is the URL of the Redis server
+	// If not empty, the producer will store the message in Redis before enqueuing it to the worker queue
+	RedisURL string
+
 	// OnProduceFunc is a function that is called when a message is produced
 	OnProduceFunc OnProduceFunc
 }
@@ -64,6 +70,7 @@ type Config struct {
 // Producer is a producer of the worker queue
 type Producer struct {
 	client internalSQS.Client
+	redis  *redis.Client
 	cfg    Config
 }
 
@@ -71,6 +78,20 @@ type Producer struct {
 func New(cfg Config, client *sqs.Client) (*Producer, error) {
 	if cfg.WorkerQueueURL == "" {
 		return nil, fmt.Errorf("WorkerQueueURL is required")
+	}
+	if cfg.RedisURL != "" {
+		rds, err := redis.New(redis.Config{
+			URL: cfg.RedisURL,
+			TTL: time.Hour * 24,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Redis client: %w", err)
+		}
+		return &Producer{
+			client: internalSQS.New(client),
+			redis:  rds,
+			cfg:    cfg,
+		}, nil
 	}
 	return &Producer{
 		client: internalSQS.New(client),
@@ -86,12 +107,18 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	msg = setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
-		return fmt.Errorf("validation failed: %v", err)
+		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	bytes, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %s", err)
+	}
+
+	if p.redis != nil {
+		if err := p.redis.SetMessage(ctx, msg); err != nil {
+			return fmt.Errorf("failed to set message to Redis: %w", err)
+		}
 	}
 
 	if err := p.client.Enqueue(ctx, p.cfg.WorkerQueueURL, string(bytes)); err != nil {
