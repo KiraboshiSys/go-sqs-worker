@@ -373,7 +373,7 @@ func (c *Consumer) calculateBackoff(retries int) int {
 
 func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error {
 	if c.cfg.useRedis() {
-		if err := c.redis.UpdateStatus(ctx, msg); err != nil {
+		if err := c.redis.UpdateMessage(ctx, msg); err != nil {
 			return fmt.Errorf("failed to set status before processing: %w", err)
 		}
 	}
@@ -385,7 +385,7 @@ func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error
 
 func (c *Consumer) afterProcess(ctx context.Context, output Output) error {
 	if c.cfg.useRedis() && output.Message.ID != uuid.Nil {
-		if err := c.redis.UpdateStatus(ctx, output.Message); err != nil {
+		if err := c.redis.UpdateMessage(ctx, output.Message); err != nil {
 			return fmt.Errorf("failed to set status after processing: %w", err)
 		}
 	}

@@ -121,9 +121,9 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 	return nil
 }
 
-// UpdateStatus updates the status of the message in Redis.
+// UpdateMessage updates the status, retry count, and updated at of the message.
 // It ensures the operation is atomic by acquiring a lock on the key.
-func (c *Client) UpdateStatus(ctx context.Context, msg message.Message) (err error) {
+func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err error) {
 	if msg.Status == msg.OldStatus {
 		// no need to update the status
 		return nil
@@ -156,7 +156,7 @@ func (c *Client) UpdateStatus(ctx context.Context, msg message.Message) (err err
 			}
 		}
 
-		if err := pipeliner.HSet(ctx, key, "status", msg.Status.String()).Err(); err != nil {
+		if err := pipeliner.HSet(ctx, key, "status", msg.Status.String(), "retry_count", msg.RetryCount, "updated_at", msg.UpdatedAt.Format(timeLayout)).Err(); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
 		}
 
