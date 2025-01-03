@@ -47,8 +47,11 @@ import (
 	"github.com/mickamy/go-sqs-worker/message"
 )
 
-// OnProduceFunc is a function that is called when a message is produced
-type OnProduceFunc func(msg message.Message)
+// BeforeProduceFunc is a function that is called before a message is produced
+type BeforeProduceFunc func(msg message.Message)
+
+// AfterProduceFunc is a function that is called after a message is produced
+type AfterProduceFunc func(msg message.Message)
 
 var (
 	validate = validator.New()
@@ -63,8 +66,11 @@ type Config struct {
 	// If not empty, the producer will store the message in Redis before enqueuing it to the worker queue
 	RedisURL string
 
-	// OnProduceFunc is a function that is called when a message is produced
-	OnProduceFunc OnProduceFunc
+	// AfterProduceFunc is a function that is called when a message is produced
+	BeforeProduceFunc BeforeProduceFunc
+
+	// AfterProduceFunc is a function that is called when a message is produced
+	AfterProduceFunc AfterProduceFunc
 }
 
 // Producer is a producer of the worker queue
@@ -121,12 +127,16 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 		}
 	}
 
+	if p.cfg.BeforeProduceFunc != nil {
+		p.cfg.BeforeProduceFunc(msg)
+	}
+
 	if err := p.client.Enqueue(ctx, p.cfg.WorkerQueueURL, string(bytes)); err != nil {
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
 
-	if p.cfg.OnProduceFunc != nil {
-		p.cfg.OnProduceFunc(msg)
+	if p.cfg.AfterProduceFunc != nil {
+		p.cfg.AfterProduceFunc(msg)
 	}
 
 	return nil

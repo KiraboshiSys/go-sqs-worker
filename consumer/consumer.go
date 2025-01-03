@@ -194,7 +194,6 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 // It uses long polling to wait for messages and processes each message using the configured job handler.
 // If a message fails to process, it will be retried based on the configured retry logic.
 // If the maximum number of retries is reached, the message will be sent to the dead letter queue (DLQ) if configured.
-// The OnProcessFunc callback is called after each message is processed, allowing custom handling of the output.
 func (c *Consumer) Do(ctx context.Context) {
 	for {
 		select {

@@ -132,7 +132,8 @@ This setup allows go-sqs-worker-viewer to display job statuses and processing me
 
 ### Producer Configuration
 - **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
-- **OnProduceFunc**: Optional. A function to execute after a message is produced. The default function does nothing.
+- **BeforeProduceFunc**: Optional. A function to execute before a message is produced. The default function does nothing.
+- **AfterProduceFunc**: Optional. A function to execute after a message is produced. The default function does nothing.
 - **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for tracking job-related data during processing, especially when used with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).
 
 ### Consumer Configuration
