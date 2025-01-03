@@ -47,7 +47,7 @@ func main() {
 		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		RedisURL:       redisURL,
 		OnProduceFunc: func(msg message.Message) {
-			// do something after producing a message
+			fmt.Println("produced message", "id", msg.ID)
 		},
 	}
 

@@ -35,10 +35,20 @@ func main() {
 		BaseDelay:          1,
 		MaxDelay:           10,
 		BeforeProcessFunc: func(ctx context.Context, msg message.Message) error {
+			fmt.Println("processing message", "id", msg.ID)
 			return nil
 		},
 		AfterProcessFunc: func(ctx context.Context, output consumer.Output) error {
-			return nil
+			if err := output.FatalError(); err != nil {
+				fmt.Println("fatal error occurred", "id", output.Message.ID, "error", err)
+				return nil
+			} else if err := output.NonFatalError(); err != nil {
+				fmt.Println("non-fatal error occurred", "id", output.Message.ID, "error", err)
+				return nil
+			} else {
+				fmt.Println("message processed", "id", output.Message.ID)
+				return nil
+			}
 		},
 	}
 
