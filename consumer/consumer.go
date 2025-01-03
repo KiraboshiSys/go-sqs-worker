@@ -265,6 +265,10 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 		}
 	}()
 
+	if !c.shouldProcess(ctx, msg) {
+		return nonFatalOutput(fmt.Errorf("message should not be processed: status=[%s]", msg.Status))
+	}
+
 	if beforeProcessErr := c.beforeProcess(ctx, msg); beforeProcessErr != nil {
 		return nonFatalOutput(beforeProcessErr).withMessage(msg)
 	}
@@ -282,6 +286,19 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 	}
 
 	return c.execute(ctx, j, msg)
+}
+
+// shouldProcess returns true if the message should be processed.
+// If Redis is used, it checks the status of the message in Redis.
+func (c *Consumer) shouldProcess(ctx context.Context, msg message.Message) bool {
+	if c.cfg.useRedis() {
+		status, err := c.redis.GetStatus(ctx, msg.ID)
+		if err != nil {
+			return false
+		}
+		return status.ShouldProcess()
+	}
+	return true
 }
 
 // execute executes a job and returns the Output
@@ -357,7 +374,7 @@ func (c *Consumer) calculateBackoff(retries int) int {
 func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error {
 	if c.cfg.useRedis() {
 		if err := c.redis.SetMessage(ctx, msg.Processing()); err != nil {
-			return fmt.Errorf("failed to update status to processing: %w", err)
+			return fmt.Errorf("failed to set status before processing: %w", err)
 		}
 	}
 	if err := c.cfg.BeforeProcessFunc(ctx, msg); err != nil {
@@ -369,7 +386,7 @@ func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error
 func (c *Consumer) afterProcess(ctx context.Context, output Output) error {
 	if c.cfg.useRedis() {
 		if err := c.redis.SetMessage(ctx, output.Message); err != nil {
-			return fmt.Errorf("failed to update status after processing: %w", err)
+			return fmt.Errorf("failed to set status after processing: %w", err)
 		}
 	}
 	if err := c.cfg.AfterProcessFunc(ctx, output); err != nil {

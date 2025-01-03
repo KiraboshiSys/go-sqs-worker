@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/mickamy/go-sqs-worker/message"
@@ -41,7 +42,20 @@ func New(cfg Config) (*Client, error) {
 	}, nil
 }
 
-func (c Client) SetMessage(ctx context.Context, msg message.Message) error {
+func (c *Client) GetStatus(ctx context.Context, id uuid.UUID) (message.Status, error) {
+	pattern := fmt.Sprintf("%s:%s:*", statusesKey, id.String())
+	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
+	for iter.Next(ctx) {
+		return message.Status(iter.Val()), nil
+	}
+	if err := iter.Err(); err != nil {
+		return "", fmt.Errorf("failed to scan for keys: %w", err)
+	}
+
+	return "", fmt.Errorf("status not found")
+}
+
+func (c *Client) SetMessage(ctx context.Context, msg message.Message) error {
 	key := fmt.Sprintf("%s:%s", messagesKey, msg.ID)
 	err := c.client.HSet(ctx, key, messageToMap(msg)).Err()
 	if err != nil {
@@ -54,7 +68,7 @@ func (c Client) SetMessage(ctx context.Context, msg message.Message) error {
 	return c.addStatus(ctx, msg)
 }
 
-func (c Client) addStatus(ctx context.Context, msg message.Message) error {
+func (c *Client) addStatus(ctx context.Context, msg message.Message) error {
 	pattern := fmt.Sprintf("%s:%s:*", statusesKey, msg.ID)
 	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
@@ -75,7 +89,7 @@ func (c Client) addStatus(ctx context.Context, msg message.Message) error {
 	return nil
 }
 
-func (c Client) setTTL(ctx context.Context, key string) error {
+func (c *Client) setTTL(ctx context.Context, key string) error {
 	if err := c.client.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
 		return fmt.Errorf("failed to set TTL: %w", err)
 	}

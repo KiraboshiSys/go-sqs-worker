@@ -62,6 +62,11 @@ func (s Status) String() string {
 	return string(s)
 }
 
+// ShouldProcess returns true if the status is Queued or Retrying
+func (s Status) ShouldProcess() bool {
+	return s == Queued || s == Retrying
+}
+
 var (
 	validate = validator.New()
 )
