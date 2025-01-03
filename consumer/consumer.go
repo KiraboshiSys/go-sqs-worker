@@ -111,7 +111,7 @@ type Config struct {
 
 	// BeforeProcessFunc is a function that is executed before processing a message.
 	// This function can be used to perform custom logic before processing the message.
-	// If an error is returned, the message will not be processed.
+	// If an error is returned, the message will not be processed and will be enqueued to the worker queue again.
 	BeforeProcessFunc BeforeProcessFunc
 
 	// AfterProcessFunc is a function that is executed after processing a message.
@@ -271,7 +271,7 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 	}
 
 	if beforeProcessErr := c.beforeProcess(ctx, msg); beforeProcessErr != nil {
-		return nonFatalOutput(beforeProcessErr).withMessage(msg)
+		return c.retry(ctx, msg)
 	}
 
 	j, err := c.getJobFunc(msg.Type)
