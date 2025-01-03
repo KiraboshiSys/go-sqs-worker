@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	messagesKey = "messages"
-	statusesKey = "statuses"
+	messagesKey = "gsw:messages"
+	statusesKey = "gsw:statuses"
 	timeLayout  = time.RFC3339
 )
 
