@@ -50,7 +50,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
-	"github.com/mickamy/go-sqs-worker/internal/ptr"
 	"github.com/mickamy/go-sqs-worker/internal/redis"
 	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/job"
@@ -266,6 +265,8 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 		}
 	}()
 
+	msg = msg.Processing()
+
 	if !c.shouldProcess(ctx, msg) {
 		return nonFatalOutput(fmt.Errorf("message should not be processed: status=[%s]", msg.Status)).withMessage(msg)
 	}
@@ -325,8 +326,8 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) 
 
 // retry retries a job. If the retry fails, it sends the message to the dead letter queue.
 func (c *Consumer) retry(ctx context.Context, msg message.Message) Output {
-	if retryErr := c.doRetry(ctx, &msg); retryErr != nil {
-		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
+	if retryErr := c.doRetry(ctx, msg.Retrying()); retryErr != nil {
+		if dlqErr := c.sendToDLQ(ctx, msg.Failed()); dlqErr != nil {
 			return fatalOutput(
 				fmt.Errorf("failed to execute job and retry and send to DLQ: %w", dlqErr),
 			).withMessage(msg.Failed())
@@ -339,8 +340,7 @@ func (c *Consumer) retry(ctx context.Context, msg message.Message) Output {
 }
 
 // doRetry retries a job with exponential backoff
-func (c *Consumer) doRetry(ctx context.Context, msg *message.Message) error {
-	msg = ptr.Of(msg.Retrying())
+func (c *Consumer) doRetry(ctx context.Context, msg message.Message) error {
 	bytes, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message on retry: %w", err)
@@ -374,7 +374,7 @@ func (c *Consumer) calculateBackoff(retries int) int {
 
 func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error {
 	if c.cfg.useRedis() {
-		if err := c.redis.UpdateStatus(ctx, msg.Processing()); err != nil {
+		if err := c.redis.UpdateStatus(ctx, msg); err != nil {
 			return fmt.Errorf("failed to set status before processing: %w", err)
 		}
 	}
