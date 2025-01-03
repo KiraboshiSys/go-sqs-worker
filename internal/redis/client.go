@@ -24,6 +24,7 @@ const (
 var (
 	ErrMissingMessageID = errors.New("missing message ID")
 	ErrStatusNotFound   = errors.New("status not found")
+	ErrMultipleStatuses = errors.New("multiple status keys found")
 	ErrLockHeld         = errors.New("lock already held")
 	ErrUnlockFailed     = errors.New("failed to release lock")
 )
@@ -57,20 +58,28 @@ func New(cfg Config) (*Client, error) {
 }
 
 func (c *Client) GetStatus(ctx context.Context, id uuid.UUID) (message.Status, error) {
-	pattern := fmt.Sprintf("%s:%s:*", _statusesKey, id.String())
-	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
-	for iter.Next(ctx) {
-		key := strings.Split(iter.Val(), ":")
-		if len(key) != 4 {
-			return "", fmt.Errorf("invalid status key: %s", iter.Val())
-		}
-		return message.Status(key[3]), nil
-	}
-	if err := iter.Err(); err != nil {
-		return "", fmt.Errorf("failed to scan for keys: %w", err)
+	key := fmt.Sprintf("%s:%s", _statusesKey, id.String())
+
+	keys, err := c.client.Keys(ctx, key+":*").Result()
+	if err != nil {
+		return "", fmt.Errorf("failed to get keys for pattern [%s]: %w", key+":*", err)
 	}
 
-	return "", errors.Join(ErrStatusNotFound, fmt.Errorf("id=[%s]", id))
+	if len(keys) == 0 {
+		return "", fmt.Errorf("%w: id=[%s]", ErrStatusNotFound, id)
+	}
+
+	if len(keys) > 1 {
+		return "", fmt.Errorf("%w: id=[%s]", ErrMultipleStatuses, id)
+	}
+
+	latestKey := keys[len(keys)-1]
+	parts := strings.Split(latestKey, ":")
+	if len(parts) < 4 {
+		return "", fmt.Errorf("invalid status key format: %s", latestKey)
+	}
+
+	return message.Status(parts[3]), nil
 }
 
 // SetMessage stores the message in Redis and updates its status.
@@ -86,7 +95,7 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 	}
 	defer func() {
 		if unlockErr := c.unlockKey(ctx, key, lockValue); unlockErr != nil {
-			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %v", key, unlockErr))
+			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %w", key, unlockErr))
 		}
 	}()
 
@@ -139,7 +148,7 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 	}
 	defer func() {
 		if unlockErr := c.unlockKey(ctx, key, lockValue); unlockErr != nil {
-			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %v", key, unlockErr))
+			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %w", key, unlockErr))
 		}
 	}()
 
