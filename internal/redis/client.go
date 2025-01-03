@@ -17,7 +17,7 @@ import (
 const (
 	_messagesKey = "gsw:messages"
 	_statusesKey = "gsw:statuses"
-	_lockKey     = "gsw:lock"
+	_locks       = "gsw:locks"
 	timeLayout   = time.RFC3339
 )
 
@@ -80,8 +80,6 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 		return ErrMissingMessageID
 	}
 	key := fmt.Sprintf("%s:%s", _messagesKey, msg.ID.String())
-
-	// acquire lock
 	lockValue, err := c.lockKey(ctx, key, c.cfg.TTL)
 	if err != nil {
 		return fmt.Errorf("failed to lock key: %w", err)
@@ -92,49 +90,88 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 		}
 	}()
 
-	err = c.client.HSet(ctx, key, messageToMap(msg)).Err()
+	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
+		newStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
+		if err := pipeliner.Set(ctx, newStatusKey, "", c.cfg.TTL).Err(); err != nil {
+			return fmt.Errorf("failed to set new status: %w", err)
+		}
+
+		if msg.OldStatus != "" {
+			oldStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.OldStatus.String())
+			if err := pipeliner.Del(ctx, oldStatusKey).Err(); err != nil {
+				return fmt.Errorf("failed to delete old status: %w", err)
+			}
+		}
+
+		if err := pipeliner.HSet(ctx, key, messageToMap(msg)).Err(); err != nil {
+			return fmt.Errorf("failed to set message: %w", err)
+		}
+
+		if err := pipeliner.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
+			return fmt.Errorf("failed to set TTL for message: %w", err)
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return fmt.Errorf("failed to set message: %w", err)
-	}
-	if err := c.setTTL(ctx, key); err != nil {
-		return err
-	}
-
-	return c.updateStatus(ctx, msg)
-}
-
-func (c *Client) updateStatus(ctx context.Context, msg message.Message) error {
-	pattern := fmt.Sprintf("%s:%s:*", _statusesKey, msg.ID.String())
-	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
-
-	pipeline := c.client.Pipeline()
-	for iter.Next(ctx) {
-		pipeline.Del(ctx, iter.Val())
-	}
-	if _, err := pipeline.Exec(ctx); err != nil {
 		return fmt.Errorf("failed to execute pipeline: %w", err)
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("failed to scan for keys: %w", err)
-	}
-
-	key := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
-	if err := c.client.Set(ctx, key, "", c.cfg.TTL).Err(); err != nil {
-		return fmt.Errorf("failed to set status: %w", err)
 	}
 
 	return nil
 }
 
-func (c *Client) setTTL(ctx context.Context, key string) error {
-	if err := c.client.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
-		return fmt.Errorf("failed to set TTL: %w", err)
+// UpdateStatus updates the status of the message in Redis.
+// It ensures the operation is atomic by acquiring a lock on the key.
+func (c *Client) UpdateStatus(ctx context.Context, msg message.Message) (err error) {
+	if msg.Status == msg.OldStatus {
+		// no need to update the status
+		return nil
 	}
+
+	if msg.ID == uuid.Nil {
+		return ErrMissingMessageID
+	}
+	key := fmt.Sprintf("%s:%s", _messagesKey, msg.ID.String())
+	lockValue, err := c.lockKey(ctx, key, c.cfg.TTL)
+	if err != nil {
+		return fmt.Errorf("failed to lock key: %w", err)
+	}
+	defer func() {
+		if unlockErr := c.unlockKey(ctx, key, lockValue); unlockErr != nil {
+			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %v", key, unlockErr))
+		}
+	}()
+
+	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
+		newStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
+		if err := pipeliner.Set(ctx, newStatusKey, "", c.cfg.TTL).Err(); err != nil {
+			return fmt.Errorf("failed to set new status: %w", err)
+		}
+
+		if msg.OldStatus != "" {
+			oldStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.OldStatus.String())
+			if err := pipeliner.Del(ctx, oldStatusKey).Err(); err != nil {
+				return fmt.Errorf("failed to delete old status: %w", err)
+			}
+		}
+
+		if err := pipeliner.HSet(ctx, key, "status", msg.Status.String()).Err(); err != nil {
+			return fmt.Errorf("failed to update status: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to execute pipeline: %w", err)
+	}
+
 	return nil
 }
 
 func (c *Client) lockKey(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	lockKey := fmt.Sprintf("%s:%s", _lockKey, key)
+	lockKey := fmt.Sprintf("%s:%s", _locks, key)
 	lockValue := uuid.New().String() // unique identifier for the lock
 
 	// attempt to acquire the lock
@@ -150,7 +187,7 @@ func (c *Client) lockKey(ctx context.Context, key string, ttl time.Duration) (st
 }
 
 func (c *Client) unlockKey(ctx context.Context, key, lockValue string) error {
-	lockKey := fmt.Sprintf("%s:%s", _lockKey, key)
+	lockKey := fmt.Sprintf("%s:%s", _locks, key)
 	currentValue, err := c.client.Get(ctx, lockKey).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return fmt.Errorf("failed to get lock value: %w", err)

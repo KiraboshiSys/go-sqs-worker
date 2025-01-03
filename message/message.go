@@ -85,6 +85,9 @@ type Message struct {
 	// Status is the current status of the job
 	Status Status `json:"status" validate:"required"`
 
+	// OldStatus is the previous status of the job
+	OldStatus Status `json:"-" validate:"-"`
+
 	// RetryCount is the number of times the job has been retried
 	RetryCount int `json:"retry_count" validate:"-"`
 
@@ -110,6 +113,7 @@ func (m *Message) Processing() Message {
 		Type:       m.Type,
 		Payload:    m.Payload,
 		Status:     Processing,
+		OldStatus:  m.Status,
 		RetryCount: m.RetryCount,
 		Caller:     m.Caller,
 		CreatedAt:  m.CreatedAt,
@@ -123,6 +127,7 @@ func (m *Message) Retrying() Message {
 		Type:       m.Type,
 		Payload:    m.Payload,
 		Status:     Retrying,
+		OldStatus:  m.Status,
 		RetryCount: m.RetryCount + 1,
 		Caller:     m.Caller,
 		CreatedAt:  m.CreatedAt,
@@ -136,6 +141,7 @@ func (m *Message) Success() Message {
 		Type:       m.Type,
 		Payload:    m.Payload,
 		Status:     Success,
+		OldStatus:  m.Status,
 		RetryCount: m.RetryCount,
 		Caller:     m.Caller,
 		CreatedAt:  m.CreatedAt,
@@ -149,6 +155,7 @@ func (m *Message) Failed() Message {
 		Type:       m.Type,
 		Payload:    m.Payload,
 		Status:     Failed,
+		OldStatus:  m.Status,
 		RetryCount: m.RetryCount,
 		Caller:     m.Caller,
 		CreatedAt:  m.CreatedAt,
