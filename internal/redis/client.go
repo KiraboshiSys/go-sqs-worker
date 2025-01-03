@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,7 +48,11 @@ func (c *Client) GetStatus(ctx context.Context, id uuid.UUID) (message.Status, e
 	pattern := fmt.Sprintf("%s:%s:*", statusesKey, id.String())
 	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
-		return message.Status(iter.Val()), nil
+		key := strings.Split(iter.Val(), ":")
+		if len(key) != 4 {
+			return "", fmt.Errorf("invalid status key: %s", iter.Val())
+		}
+		return message.Status(key[3]), nil
 	}
 	if err := iter.Err(); err != nil {
 		return "", fmt.Errorf("failed to scan for keys: %w", err)

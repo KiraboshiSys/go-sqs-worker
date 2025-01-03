@@ -12,7 +12,6 @@ Types:
 Functions:
 
   - Message.SetCaller: Sets the Caller field of the Message.
-  - Message.SetStatus: Sets the Status field of the Message.
   - Message.Processing: Returns a new Message with the status set to Processing.
   - Message.Retrying: Returns a new Message with the status set to Retrying.
   - Message.Success: Returns a new Message with the status set to Success.
@@ -102,12 +101,6 @@ type Message struct {
 // SetCaller sets the Caller of the job
 func (m *Message) SetCaller(caller string) {
 	m.Caller = caller
-	m.UpdatedAt = time.Now()
-}
-
-// SetStatus sets the Status of the job
-func (m *Message) SetStatus(status Status) {
-	m.Status = status
 	m.UpdatedAt = time.Now()
 }
 
