@@ -15,7 +15,7 @@ type HeavyJob struct {
 }
 
 func (j HeavyJob) Execute(ctx context.Context, payloadStr string) error {
-	time.Sleep(1 * time.Minute)
+	time.Sleep(10 * time.Second)
 	return nil
 }
 
