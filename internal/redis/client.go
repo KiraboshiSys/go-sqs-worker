@@ -15,14 +15,23 @@ import (
 )
 
 const (
-	messagesKey = "gsw:messages"
-	statusesKey = "gsw:statuses"
-	timeLayout  = time.RFC3339
+	_messagesKey = "gsw:messages"
+	_statusesKey = "gsw:statuses"
+	_lockKey     = "gsw:lock"
+	timeLayout   = time.RFC3339
+)
+
+var (
+	ErrMissingMessageID = errors.New("missing message ID")
+	ErrStatusNotFound   = errors.New("status not found")
+	ErrLockHeld         = errors.New("lock already held")
+	ErrUnlockFailed     = errors.New("failed to release lock")
 )
 
 type Config struct {
-	URL string
-	TTL time.Duration
+	URL     string
+	TTL     time.Duration
+	LockTTL time.Duration
 }
 
 type Client struct {
@@ -38,6 +47,9 @@ func New(cfg Config) (*Client, error) {
 	if cfg.TTL == time.Duration(0) {
 		cfg.TTL = time.Hour * 24
 	}
+	if cfg.LockTTL == time.Duration(0) {
+		cfg.LockTTL = time.Second * 5
+	}
 	return &Client{
 		cfg:    cfg,
 		client: redis.NewClient(opts),
@@ -45,7 +57,7 @@ func New(cfg Config) (*Client, error) {
 }
 
 func (c *Client) GetStatus(ctx context.Context, id uuid.UUID) (message.Status, error) {
-	pattern := fmt.Sprintf("%s:%s:*", statusesKey, id.String())
+	pattern := fmt.Sprintf("%s:%s:*", _statusesKey, id.String())
 	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
 		key := strings.Split(iter.Val(), ":")
@@ -58,15 +70,29 @@ func (c *Client) GetStatus(ctx context.Context, id uuid.UUID) (message.Status, e
 		return "", fmt.Errorf("failed to scan for keys: %w", err)
 	}
 
-	return "", fmt.Errorf("status not found")
+	return "", errors.Join(ErrStatusNotFound, fmt.Errorf("id=[%s]", id))
 }
 
-func (c *Client) SetMessage(ctx context.Context, msg message.Message) error {
+// SetMessage stores the message in Redis and updates its status.
+// It ensures the operation is atomic by acquiring a lock on the key.
+func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error) {
 	if msg.ID == uuid.Nil {
-		return errors.New("missing message ID")
+		return ErrMissingMessageID
 	}
-	key := fmt.Sprintf("%s:%s", messagesKey, msg.ID.String())
-	err := c.client.HSet(ctx, key, messageToMap(msg)).Err()
+	key := fmt.Sprintf("%s:%s", _messagesKey, msg.ID.String())
+
+	// acquire lock
+	lockValue, err := c.lockKey(ctx, key, c.cfg.TTL)
+	if err != nil {
+		return fmt.Errorf("failed to lock key: %w", err)
+	}
+	defer func() {
+		if unlockErr := c.unlockKey(ctx, key, lockValue); unlockErr != nil {
+			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %v", key, unlockErr))
+		}
+	}()
+
+	err = c.client.HSet(ctx, key, messageToMap(msg)).Err()
 	if err != nil {
 		return fmt.Errorf("failed to set message: %w", err)
 	}
@@ -74,24 +100,26 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) error {
 		return err
 	}
 
-	return c.addStatus(ctx, msg)
+	return c.updateStatus(ctx, msg)
 }
 
-func (c *Client) addStatus(ctx context.Context, msg message.Message) error {
-	pattern := fmt.Sprintf("%s:%s:*", statusesKey, msg.ID.String())
+func (c *Client) updateStatus(ctx context.Context, msg message.Message) error {
+	pattern := fmt.Sprintf("%s:%s:*", _statusesKey, msg.ID.String())
 	iter := c.client.Scan(ctx, 0, pattern, 0).Iterator()
+
+	pipeline := c.client.Pipeline()
 	for iter.Next(ctx) {
-		if err := c.client.Del(ctx, iter.Val()).Err(); err != nil {
-			return fmt.Errorf("failed to delete old status: %w", err)
-		}
+		pipeline.Del(ctx, iter.Val())
+	}
+	if _, err := pipeline.Exec(ctx); err != nil {
+		return fmt.Errorf("failed to execute pipeline: %w", err)
 	}
 	if err := iter.Err(); err != nil {
 		return fmt.Errorf("failed to scan for keys: %w", err)
 	}
 
-	key := fmt.Sprintf("%s:%s:%s", statusesKey, msg.ID.String(), msg.Status.String())
-	value := "" // value may be empty because we only need the key
-	if err := c.client.Set(ctx, key, value, c.cfg.TTL).Err(); err != nil {
+	key := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
+	if err := c.client.Set(ctx, key, "", c.cfg.TTL).Err(); err != nil {
 		return fmt.Errorf("failed to set status: %w", err)
 	}
 
@@ -105,6 +133,39 @@ func (c *Client) setTTL(ctx context.Context, key string) error {
 	return nil
 }
 
+func (c *Client) lockKey(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	lockKey := fmt.Sprintf("%s:%s", _lockKey, key)
+	lockValue := uuid.New().String() // unique identifier for the lock
+
+	// attempt to acquire the lock
+	result, err := c.client.SetNX(ctx, lockKey, lockValue, ttl).Result()
+	if err != nil {
+		return "", fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	if !result {
+		return "", errors.Join(ErrLockHeld, fmt.Errorf("key=[%s]", key))
+	}
+
+	return lockValue, nil
+}
+
+func (c *Client) unlockKey(ctx context.Context, key, lockValue string) error {
+	lockKey := fmt.Sprintf("%s:%s", _lockKey, key)
+	currentValue, err := c.client.Get(ctx, lockKey).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return fmt.Errorf("failed to get lock value: %w", err)
+	}
+	if currentValue != lockValue {
+		return fmt.Errorf("lock value mismatch for key: %s", key)
+	}
+
+	if err := c.client.Del(ctx, lockKey).Err(); err != nil {
+		return fmt.Errorf("failed to release lock: %w", err)
+	}
+
+	return nil
+}
+
 func messageToMap(msg message.Message) map[string]string {
 	return map[string]string{
 		"type":        msg.Type,
@@ -112,7 +173,7 @@ func messageToMap(msg message.Message) map[string]string {
 		"status":      msg.Status.String(),
 		"retry_count": strconv.Itoa(msg.RetryCount),
 		"caller":      msg.Caller,
-		"created_at":  msg.CreatedAt.Format(time.RFC3339),
-		"updated_at":  msg.UpdatedAt.Format(time.RFC3339),
+		"created_at":  msg.CreatedAt.Format(timeLayout),
+		"updated_at":  msg.UpdatedAt.Format(timeLayout),
 	}
 }
