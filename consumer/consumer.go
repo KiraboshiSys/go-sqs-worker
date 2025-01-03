@@ -48,6 +48,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 
 	"github.com/mickamy/go-sqs-worker/internal/ptr"
 	"github.com/mickamy/go-sqs-worker/internal/redis"
@@ -384,7 +385,7 @@ func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error
 }
 
 func (c *Consumer) afterProcess(ctx context.Context, output Output) error {
-	if c.cfg.useRedis() {
+	if c.cfg.useRedis() && output.Message.ID != uuid.Nil {
 		if err := c.redis.SetMessage(ctx, output.Message); err != nil {
 			return fmt.Errorf("failed to set status after processing: %w", err)
 		}
