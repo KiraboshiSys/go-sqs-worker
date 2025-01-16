@@ -48,10 +48,10 @@ import (
 )
 
 // BeforeProduceFunc is a function that is called before a message is produced
-type BeforeProduceFunc func(msg message.Message)
+type BeforeProduceFunc func(ctx context.Context, msg message.Message)
 
 // AfterProduceFunc is a function that is called after a message is produced
-type AfterProduceFunc func(msg message.Message)
+type AfterProduceFunc func(ctx context.Context, msg message.Message)
 
 var (
 	validate = validator.New()
@@ -128,7 +128,7 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	}
 
 	if p.cfg.BeforeProduceFunc != nil {
-		p.cfg.BeforeProduceFunc(msg)
+		p.cfg.BeforeProduceFunc(ctx, msg)
 	}
 
 	if err := p.client.Enqueue(ctx, p.cfg.WorkerQueueURL, string(bytes)); err != nil {
@@ -136,7 +136,7 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	}
 
 	if p.cfg.AfterProduceFunc != nil {
-		p.cfg.AfterProduceFunc(msg)
+		p.cfg.AfterProduceFunc(ctx, msg)
 	}
 
 	return nil

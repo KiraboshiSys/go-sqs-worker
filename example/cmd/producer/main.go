@@ -46,7 +46,10 @@ func main() {
 	cfg := producer.Config{
 		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		RedisURL:       redisURL,
-		AfterProduceFunc: func(msg message.Message) {
+		BeforeProduceFunc: func(ctx context.Context, msg message.Message) {
+			fmt.Println("producing message", "id", msg.ID)
+		},
+		AfterProduceFunc: func(ctx context.Context, msg message.Message) {
 			fmt.Println("produced message", "id", msg.ID)
 		},
 	}
