@@ -196,20 +196,22 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 // If the maximum number of retries is reached, the message will be sent to the dead letter queue (DLQ) if configured.
 func (c *Consumer) Do(ctx context.Context) {
 	for {
+		m, deleteMessage, err := c.sqsClient.Dequeue(ctx, c.cfg.WorkerQueueURL, c.cfg.WaitTimeSeconds)
+		if err != nil {
+			// continue processing if dequeue failed
+			continue
+		}
+		if m == nil {
+			// continue processing if message is empty
+			continue
+		}
+
 		select {
 		case <-ctx.Done():
+			// stop processing if context is canceled
+			// do not delete message to allow other consumers to process it
 			return
 		default:
-			m, deleteMessage, err := c.sqsClient.Dequeue(ctx, c.cfg.WorkerQueueURL, c.cfg.WaitTimeSeconds)
-			if err != nil {
-				// continue processing if dequeue failed
-				continue
-			}
-			if m == nil {
-				// continue processing if message is empty
-				continue
-			}
-
 			// delete message before processing to avoid duplicate processing
 			if err := deleteMessage(ctx); err != nil {
 				continue
