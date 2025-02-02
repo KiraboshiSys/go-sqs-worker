@@ -226,7 +226,7 @@ func (c *Consumer) Do(ctx context.Context) {
 
 			output := c.Process(consumerCtx, *m)
 			if afterProcessErr := c.afterProcess(consumerCtx, output); afterProcessErr != nil {
-				c.retry(consumerCtx, output.Message)
+				c.retry(consumerCtx, output.Message, afterProcessErr)
 				cancel()
 				continue
 			}
@@ -283,14 +283,14 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 	}
 
 	if beforeProcessErr := c.beforeProcess(ctx, msg); beforeProcessErr != nil {
-		return c.retry(ctx, msg)
+		return c.retry(ctx, msg, beforeProcessErr)
 	}
 
 	j, err := c.getJobFunc(msg.Type)
 	if err != nil {
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 			return fatalOutput(
-				fmt.Errorf("failed to get job and send to DLQ: %w", dlqErr),
+				errors.Join(fmt.Errorf("failed to get job and send to DLQ: %w", dlqErr), err),
 			).withMessage(msg)
 		}
 		return nonFatalOutput(
@@ -318,12 +318,12 @@ func (c *Consumer) shouldProcess(ctx context.Context, msg message.Message) bool 
 func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) Output {
 	if err := j.Execute(ctx, msg.Payload); err != nil {
 		if msg.RetryCount < c.cfg.MaxRetry {
-			return c.retry(ctx, msg)
+			return c.retry(ctx, msg, err)
 		}
 
 		if dlqErr := c.sendToDLQ(ctx, msg); dlqErr != nil {
 			return fatalOutput(
-				fmt.Errorf("max retry attempts reached; failed to send to DLQ: %w", dlqErr),
+				errors.Join(fmt.Errorf("max retry attempts reached; failed to send to DLQ: %w", dlqErr), err),
 			).withMessage(msg.Failed())
 		}
 		return nonFatalOutput(
@@ -336,18 +336,18 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) 
 }
 
 // retry retries a job. If the retry fails, it sends the message to the dead letter queue.
-func (c *Consumer) retry(ctx context.Context, msg message.Message) Output {
+func (c *Consumer) retry(ctx context.Context, msg message.Message, err error) Output {
 	if retryErr := c.doRetry(ctx, msg.Retrying()); retryErr != nil {
 		if dlqErr := c.sendToDLQ(ctx, msg.Failed()); dlqErr != nil {
 			return fatalOutput(
-				fmt.Errorf("failed to execute job and retry and send to DLQ: %w", dlqErr),
+				errors.Join(fmt.Errorf("failed to execute job and retry and send to DLQ: %w", dlqErr), err),
 			).withMessage(msg.Failed())
 		}
 		return nonFatalOutput(
-			fmt.Errorf("failed to execute job and retry; sent to DLQ successfully: %w", retryErr),
+			errors.Join(fmt.Errorf("failed to execute job and retry; sent to DLQ successfully: %w", retryErr), err),
 		).withMessage(msg.Failed())
 	}
-	return nonFatalOutput(ErrSuccessfullyRetried).withMessage(msg.Retrying())
+	return nonFatalOutput(errors.Join(ErrSuccessfullyRetried, err)).withMessage(msg.Retrying())
 }
 
 // doRetry retries a job with exponential backoff
