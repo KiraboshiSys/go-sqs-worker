@@ -63,7 +63,7 @@ func (s Status) String() string {
 
 // ShouldProcess returns true if the status is Queued or Retrying
 func (s Status) ShouldProcess() bool {
-	return s == Queued || s == Retrying
+	return s == "" || s == Queued || s == Retrying
 }
 
 var (
