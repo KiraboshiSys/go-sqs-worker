@@ -279,7 +279,7 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 	msg = msg.Processing()
 
 	if !c.shouldProcess(ctx, msg) {
-		return nonFatalOutput(fmt.Errorf("message should not be processed: status=[%s]", msg.Status)).withMessage(msg)
+		return nonFatalOutput(errors.New("message should not be processed")).withMessage(msg)
 	}
 
 	if beforeProcessErr := c.beforeProcess(ctx, msg); beforeProcessErr != nil {
