@@ -5,6 +5,7 @@
 ## Features
 
 - **Producer and Consumer Support**: Enables the creation and handling of jobs with distinct producer and consumer components.
+- **Scheduled Job Processing**: Supports the scheduling of jobs for processing at a later time.
 - **Dead Letter Queue Integration**: Provides built-in support for Dead Letter Queues (DLQs) to ensure reliable message processing.
 - **Configurable Retry Mechanism**: Allows customization of the number of retries and delay intervals for failed jobs.
 - **Graceful Shutdown**: Manages context cancellation and cleanup during termination.
@@ -132,6 +133,9 @@ This setup allows go-sqs-worker-viewer to display job statuses and processing me
 
 ### Producer Configuration
 - **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
+- **WorkerQueueARN**: Optional. The ARN of the SQS queue where worker messages are stored. This is required if you use scheduled jobs.
+- **SchedulerRoleARN**: Optional. The ARN of the IAM role used by EventBridge Scheduler. This is required if you use scheduled jobs.
+- **SchedulerTimeZone**: Optional. The time zone used by EventBridge Scheduler. This is required if you use scheduled jobs.
 - **BeforeProduceFunc**: Optional. A function to execute before a message is produced. The default function does nothing.
 - **AfterProduceFunc**: Optional. A function to execute after a message is produced. The default function does nothing.
 - **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for tracking job-related data during processing, especially when used with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).

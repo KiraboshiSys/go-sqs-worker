@@ -46,15 +46,17 @@ func main() {
 	cfg := producer.Config{
 		WorkerQueueURL: "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
 		RedisURL:       redisURL,
-		BeforeProduceFunc: func(ctx context.Context, msg message.Message) {
+		BeforeProduceFunc: func(ctx context.Context, msg message.Message) error {
 			fmt.Println("producing message", "id", msg.ID)
+			return nil
 		},
-		AfterProduceFunc: func(ctx context.Context, msg message.Message) {
+		AfterProduceFunc: func(ctx context.Context, msg message.Message) error {
 			fmt.Println("produced message", "id", msg.ID)
+			return nil
 		},
 	}
 
-	p, err := producer.New(cfg, aws.NewSQSClient(ctx))
+	p, err := producer.New(cfg, aws.NewSQSClient(ctx), aws.NewSchedulerClient(ctx))
 	if err != nil {
 		fmt.Println("failed to create producer", "error", err)
 		return
