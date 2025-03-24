@@ -3,6 +3,7 @@ package sqs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -34,6 +35,19 @@ type client struct {
 }
 
 func (c *client) EnqueueToSQS(ctx context.Context, message message.Message, at time.Time) error {
+	if c.client == nil {
+		return errors.New("no scheduler client provided")
+	}
+	if c.queueARN == "" {
+		return errors.New("no queue ARN provided")
+	}
+	if c.roleARN == "" {
+		return errors.New("no role ARN provided")
+	}
+	if c.tz == "" {
+		return errors.New("no timezone provided")
+	}
+
 	name := message.ID.String()
 	atStr := at.Format("2006-01-02T15:04:05")
 
