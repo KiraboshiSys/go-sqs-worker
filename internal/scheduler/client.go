@@ -49,7 +49,7 @@ func (c *client) EnqueueToSQS(ctx context.Context, message message.Message, at t
 	}
 
 	name := message.ID.String()
-	atStr := at.Format("2006-01-02T15:04:05")
+	atStr := at.Format("at(2006-01-02T15:04:05)")
 
 	input, err := json.Marshal(message)
 	if err != nil {
