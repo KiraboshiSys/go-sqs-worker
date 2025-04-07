@@ -1,15 +1,18 @@
 # go-sqs-worker
 
-`go-sqs-worker` is a Go library designed to manage asynchronous jobs using AWS SQS. It provides a simple, scalable way to produce and consume tasks, making it ideal for background job processing.
+`go-sqs-worker` is a Go library designed to manage asynchronous jobs using AWS SQS. It provides a simple, scalable way
+to produce and consume tasks, making it ideal for background job processing.
 
 ## Features
 
-- **Producer and Consumer Support**: Enables the creation and handling of jobs with distinct producer and consumer components.
+- **Producer and Consumer Support**: Enables the creation and handling of jobs with distinct producer and consumer
+  components.
 - **Scheduled Job Processing**: Supports the scheduling of jobs for processing at a later time.
-- **Dead Letter Queue Integration**: Provides built-in support for Dead Letter Queues (DLQs) to ensure reliable message processing.
+- **Dead Letter Queue Integration**: Provides built-in support for Dead Letter Queues (DLQs) to ensure reliable message
+  processing.
 - **Configurable Retry Mechanism**: Allows customization of the number of retries and delay intervals for failed jobs.
 - **Graceful Shutdown**: Manages context cancellation and cleanup during termination.
-- **LocalStack Compatibility**: Fully compatible with LocalStack for local development and testing. 
+- **LocalStack Compatibility**: Fully compatible with LocalStack for local development and testing.
 
 ## Installation
 
@@ -103,7 +106,6 @@ func main() {
 
 ```
 
-
 ## Example Project
 
 The repository includes an example project under the example/ directory. To run the example:
@@ -114,7 +116,9 @@ make up
 
 ## Integration with go-sqs-worker-viewer
 
-For monitoring and managing jobs in real-time, use [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer). Configure RedisURL in the consumer/producer to enable integration:
+For monitoring and managing jobs in real-time,
+use [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer). Configure RedisURL in the consumer/producer
+to enable integration:
 
 ```
 consumer.Config{
@@ -132,27 +136,47 @@ This setup allows go-sqs-worker-viewer to display job statuses and processing me
 ## Configuration
 
 ### Producer Configuration
+
 - **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
-- **WorkerQueueARN**: Optional. The ARN of the SQS queue where worker messages are stored. This is required if you use scheduled jobs.
-- **SchedulerRoleARN**: Optional. The ARN of the IAM role used by EventBridge Scheduler. This is required if you use scheduled jobs.
-- **SchedulerTimeZone**: Optional. The time zone used by EventBridge Scheduler. This is required if you use scheduled jobs.
-- **BeforeProduceFunc**: Optional. A function to execute before a message is produced. The default function does nothing.
+- **WorkerQueueARN**: Optional. The ARN of the SQS queue where worker messages are stored. This is required if you use
+  scheduled jobs.
+- **SchedulerRoleARN**: Optional. The ARN of the IAM role used by EventBridge Scheduler. This is required if you use
+  scheduled jobs.
+- **SchedulerTimeZone**: Optional. The time zone used by EventBridge Scheduler. This is required if you use scheduled
+  jobs.
+- **BeforeProduceFunc**: Optional. A function to execute before a message is produced. The default function does
+  nothing.
 - **AfterProduceFunc**: Optional. A function to execute after a message is produced. The default function does nothing.
-- **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for tracking job-related data during processing, especially when used with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).
+- **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for
+  tracking job-related data during processing, especially when used
+  with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).
 
 ### Consumer Configuration
+
 - **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
-- **DeadLetterQueueURL**: Optional. The URL of the Dead Letter Queue (DLQ) for messages that fail to process after the maximum number of retries. If not set, the DLQ is not used.
-- **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for tracking job-related data during processing, especially when used with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).
+- **DeadLetterQueueURL**: Optional. The URL of the Dead Letter Queue (DLQ) for messages that fail to process after the
+  maximum number of retries. If not set, the DLQ is not used.
+- **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for
+  tracking job-related data during processing, especially when used
+  with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).
 - **MaxRetry**: Optional. The maximum number of retry attempts for a failed job. The default value is 5 retries.
-- **BaseDelay**: Optional. The initial delay (in seconds) before retrying a failed job. This value is used as the base for calculating exponential backoff delays. The default value is 30 seconds.
-- **MaxDelay**: Optional. The maximum delay (in seconds) between retries, used to cap the exponential backoff delay. The default value is 3600 seconds (1 hour).
-- **WaitTimeSeconds**: Optional. The maximum time (in seconds) to wait for a message to be received from the SQS queue. This value is used for long polling. The default value is 20 seconds. The maximum allowed value is [20 seconds](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html).
+- **BaseDelay**: Optional. The initial delay (in seconds) before retrying a failed job. This value is used as the base
+  for calculating exponential backoff delays. The default value is 30 seconds.
+- **MaxDelay**: Optional. The maximum delay (in seconds) between retries, used to cap the exponential backoff delay. The
+  default value is 3600 seconds (1 hour).
+- **WaitTimeSeconds**: Optional. The maximum time (in seconds) to wait for a message to be received from the SQS queue.
+  This value is used for long polling. The default value is 20 seconds. The maximum allowed value
+  is [20 seconds](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html).
+- **TimeoutSeconds**: Optional. The maximum time (in seconds) to wait for a message to be processed. This value is used
+  to limit the time spent on processing a message. The default value is 300 seconds. Note that actual timeout seconds
+  will be WaitTimeSeconds + TimeoutSeconds.
 - **BeforeProcessFunc**: Optional. A function to execute before processing a message. The default function does nothing.
 - **AfterProcessFunc**: Optional. A function to execute after processing a message. The default function does nothing.
 
 ## Documentation
+
 GoDoc documentation is available at [pkg.go.dev](https://pkg.go.dev/github.com/mickamy/go-sqs-worker).
 
 ## License
+
 This library is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.

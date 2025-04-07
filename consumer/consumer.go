@@ -108,6 +108,12 @@ type Config struct {
 	// For more information, see: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
 	WaitTimeSeconds int
 
+	// TimeoutSeconds is the maximum time (in seconds) to wait for a message to be processed.
+	// This value is used to limit the time spent on processing a message.
+	// If not set, the default value is 300 seconds.
+	// Note that actual timeout seconds will be WaitTimeSeconds + TimeoutSeconds.
+	TimeoutSeconds int
+
 	// BeforeProcessFunc is a function that is executed before processing a message.
 	// This function can be used to perform custom logic before processing the message.
 	// If an error is returned, the message will not be processed and will be enqueued to the worker queue again.
@@ -139,6 +145,9 @@ func newConfig(c Config) Config {
 	}
 	if c.WaitTimeSeconds == 0 {
 		c.WaitTimeSeconds = 20
+	}
+	if c.TimeoutSeconds == 0 {
+		c.TimeoutSeconds = 300
 	}
 	if c.BeforeProcessFunc == nil {
 		c.BeforeProcessFunc = func(context.Context, message.Message) error { return nil }
@@ -197,7 +206,7 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 func (c *Consumer) Do(ctx context.Context) {
 	for {
 		// create a new context for each message to avoid context cancellation
-		consumerCtx, cancel := context.WithTimeout(ctx, time.Duration(c.cfg.WaitTimeSeconds+1)*time.Second)
+		consumerCtx, cancel := context.WithTimeout(ctx, time.Duration(c.cfg.WaitTimeSeconds+c.cfg.TimeoutSeconds)*time.Second)
 
 		m, deleteMessage, err := c.sqsClient.Dequeue(consumerCtx, c.cfg.WorkerQueueURL, c.cfg.WaitTimeSeconds)
 		if err != nil {
