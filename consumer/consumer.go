@@ -206,7 +206,7 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 func (c *Consumer) Do(ctx context.Context) {
 	for {
 		// create a new context for each message to avoid context cancellation
-		consumerCtx, cancel := context.WithTimeout(ctx, time.Duration(c.cfg.WaitTimeSeconds+c.cfg.TimeoutSeconds)*time.Second)
+		consumerCtx, cancel := context.WithTimeout(context.Background(), time.Duration(c.cfg.WaitTimeSeconds+c.cfg.TimeoutSeconds)*time.Second)
 
 		m, deleteMessage, err := c.sqsClient.Dequeue(consumerCtx, c.cfg.WorkerQueueURL, c.cfg.WaitTimeSeconds)
 		if err != nil {
