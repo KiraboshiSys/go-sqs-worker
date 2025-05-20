@@ -171,19 +171,35 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	return nil
 }
 
-func (p *Producer) DoScheduled(ctx context.Context, scheduleName string, msg message.Message, at time.Time) error {
+func (p *Producer) DoScheduled(ctx context.Context, schedulerName string, msg message.Message, at time.Time) error {
 	msg = setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	if err := p.scheduler.EnqueueToSQS(ctx, scheduleName, msg, at); err != nil {
+	if schedulerName == "" {
+		schedulerName = msg.ID.String()
+	}
+
+	if err := p.scheduler.EnqueueToSQS(ctx, schedulerName, msg, at); err != nil {
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
 
 	if err := p.afterProduce(ctx, msg); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (p *Producer) CancelSchedule(ctx context.Context, schedulerName string) error {
+	if schedulerName == "" {
+		return fmt.Errorf("schedule name is required")
+	}
+
+	if err := p.scheduler.Delete(ctx, schedulerName); err != nil {
+		return fmt.Errorf("failed to cancel schedule: %w", err)
 	}
 
 	return nil

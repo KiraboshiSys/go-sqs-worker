@@ -49,9 +49,6 @@ func (c *client) EnqueueToSQS(ctx context.Context, schedulerName string, message
 		return errors.New("no timezone provided")
 	}
 
-	if schedulerName == "" {
-		schedulerName = message.ID.String()
-	}
 	atStr := at.Format("at(2006-01-02T15:04:05)")
 
 	input, err := json.Marshal(message)
@@ -81,9 +78,6 @@ func (c *client) EnqueueToSQS(ctx context.Context, schedulerName string, message
 func (c *client) Delete(ctx context.Context, schedulerName string) error {
 	if c.client == nil {
 		return errors.New("no scheduler client provided")
-	}
-	if schedulerName == "" {
-		return errors.New("scheduler name is empty")
 	}
 
 	_, err := c.client.DeleteSchedule(ctx, &scheduler.DeleteScheduleInput{
