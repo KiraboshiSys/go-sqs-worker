@@ -88,7 +88,7 @@ type Config struct {
 	// This member is optional
 	RedisURL string
 
-	// AfterProduceFunc is a function that is called when a message is produced
+	// BeforeProduceFunc is a function that is called before a message is produced
 	//
 	// This member is optional
 	BeforeProduceFunc BeforeProduceFunc
