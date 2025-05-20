@@ -171,14 +171,14 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	return nil
 }
 
-func (p *Producer) DoScheduled(ctx context.Context, msg message.Message, at time.Time) error {
+func (p *Producer) DoScheduled(ctx context.Context, scheduleName string, msg message.Message, at time.Time) error {
 	msg = setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	if err := p.scheduler.EnqueueToSQS(ctx, msg, at); err != nil {
+	if err := p.scheduler.EnqueueToSQS(ctx, scheduleName, msg, at); err != nil {
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
 
