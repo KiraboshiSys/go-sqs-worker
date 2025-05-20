@@ -15,8 +15,8 @@ import (
 
 //go:generate mockgen -source=$GOFILE -destination=./mock_$GOPACKAGE/mock_$GOFILE -package=mock_$GOPACKAGE
 type Client interface {
-	EnqueueToSQS(ctx context.Context, scheduleName string, message message.Message, at time.Time) error
-	Delete(ctx context.Context, scheduleName string) error
+	EnqueueToSQS(ctx context.Context, schedulerName string, message message.Message, at time.Time) error
+	Delete(ctx context.Context, schedulerName string) error
 }
 
 func New(c *scheduler.Client, queueARN, roleARN, tz string) Client {
@@ -35,7 +35,7 @@ type client struct {
 	tz       string
 }
 
-func (c *client) EnqueueToSQS(ctx context.Context, scheduleName string, message message.Message, at time.Time) error {
+func (c *client) EnqueueToSQS(ctx context.Context, schedulerName string, message message.Message, at time.Time) error {
 	if c.client == nil {
 		return errors.New("no scheduler client provided")
 	}
@@ -49,8 +49,8 @@ func (c *client) EnqueueToSQS(ctx context.Context, scheduleName string, message 
 		return errors.New("no timezone provided")
 	}
 
-	if scheduleName == "" {
-		scheduleName = message.ID.String()
+	if schedulerName == "" {
+		schedulerName = message.ID.String()
 	}
 	atStr := at.Format("at(2006-01-02T15:04:05)")
 
@@ -61,7 +61,7 @@ func (c *client) EnqueueToSQS(ctx context.Context, scheduleName string, message 
 	inputStr := string(input)
 
 	_, err = c.client.CreateSchedule(ctx, &scheduler.CreateScheduleInput{
-		Name:               &scheduleName,
+		Name:               &schedulerName,
 		FlexibleTimeWindow: &types.FlexibleTimeWindow{Mode: types.FlexibleTimeWindowModeOff},
 		ScheduleExpression: &atStr,
 		Target: &types.Target{
@@ -78,16 +78,16 @@ func (c *client) EnqueueToSQS(ctx context.Context, scheduleName string, message 
 	return nil
 }
 
-func (c *client) Delete(ctx context.Context, scheduleName string) error {
+func (c *client) Delete(ctx context.Context, schedulerName string) error {
 	if c.client == nil {
 		return errors.New("no scheduler client provided")
 	}
-	if scheduleName == "" {
-		return errors.New("schedule name is empty")
+	if schedulerName == "" {
+		return errors.New("scheduler name is empty")
 	}
 
 	_, err := c.client.DeleteSchedule(ctx, &scheduler.DeleteScheduleInput{
-		Name: &scheduleName,
+		Name: &schedulerName,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete schedule: %w", err)
