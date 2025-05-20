@@ -15,7 +15,8 @@ import (
 
 //go:generate mockgen -source=$GOFILE -destination=./mock_$GOPACKAGE/mock_$GOFILE -package=mock_$GOPACKAGE
 type Client interface {
-	EnqueueToSQS(ctx context.Context, message message.Message, at time.Time) error
+	EnqueueToSQS(ctx context.Context, scheduleName string, message message.Message, at time.Time) error
+	Delete(ctx context.Context, scheduleName string) error
 }
 
 func New(c *scheduler.Client, queueARN, roleARN, tz string) Client {
@@ -34,7 +35,7 @@ type client struct {
 	tz       string
 }
 
-func (c *client) EnqueueToSQS(ctx context.Context, message message.Message, at time.Time) error {
+func (c *client) EnqueueToSQS(ctx context.Context, scheduleName string, message message.Message, at time.Time) error {
 	if c.client == nil {
 		return errors.New("no scheduler client provided")
 	}
@@ -48,7 +49,6 @@ func (c *client) EnqueueToSQS(ctx context.Context, message message.Message, at t
 		return errors.New("no timezone provided")
 	}
 
-	name := message.ID.String()
 	atStr := at.Format("at(2006-01-02T15:04:05)")
 
 	input, err := json.Marshal(message)
@@ -58,7 +58,7 @@ func (c *client) EnqueueToSQS(ctx context.Context, message message.Message, at t
 	inputStr := string(input)
 
 	_, err = c.client.CreateSchedule(ctx, &scheduler.CreateScheduleInput{
-		Name:               &name,
+		Name:               &scheduleName,
 		FlexibleTimeWindow: &types.FlexibleTimeWindow{Mode: types.FlexibleTimeWindowModeOff},
 		ScheduleExpression: &atStr,
 		Target: &types.Target{
@@ -70,6 +70,21 @@ func (c *client) EnqueueToSQS(ctx context.Context, message message.Message, at t
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create schedule: %w", err)
+	}
+
+	return nil
+}
+
+func (c *client) Delete(ctx context.Context, scheduleName string) error {
+	if c.client == nil {
+		return errors.New("no scheduler client provided")
+	}
+
+	_, err := c.client.DeleteSchedule(ctx, &scheduler.DeleteScheduleInput{
+		Name: &scheduleName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete schedule: %w", err)
 	}
 
 	return nil
