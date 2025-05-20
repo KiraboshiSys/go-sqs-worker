@@ -15,8 +15,8 @@ import (
 
 //go:generate mockgen -source=$GOFILE -destination=./mock_$GOPACKAGE/mock_$GOFILE -package=mock_$GOPACKAGE
 type Client interface {
-	EnqueueToSQS(ctx context.Context, schedulerName string, message message.Message, at time.Time) error
-	Delete(ctx context.Context, schedulerName string) error
+	EnqueueToSQS(ctx context.Context, scheduleName string, message message.Message, at time.Time) error
+	Delete(ctx context.Context, scheduleName string) error
 }
 
 func New(c *scheduler.Client, queueARN, roleARN, tz string) Client {
@@ -35,7 +35,7 @@ type client struct {
 	tz       string
 }
 
-func (c *client) EnqueueToSQS(ctx context.Context, schedulerName string, message message.Message, at time.Time) error {
+func (c *client) EnqueueToSQS(ctx context.Context, scheduleName string, message message.Message, at time.Time) error {
 	if c.client == nil {
 		return errors.New("no scheduler client provided")
 	}
@@ -58,7 +58,7 @@ func (c *client) EnqueueToSQS(ctx context.Context, schedulerName string, message
 	inputStr := string(input)
 
 	_, err = c.client.CreateSchedule(ctx, &scheduler.CreateScheduleInput{
-		Name:               &schedulerName,
+		Name:               &scheduleName,
 		FlexibleTimeWindow: &types.FlexibleTimeWindow{Mode: types.FlexibleTimeWindowModeOff},
 		ScheduleExpression: &atStr,
 		Target: &types.Target{
@@ -75,13 +75,13 @@ func (c *client) EnqueueToSQS(ctx context.Context, schedulerName string, message
 	return nil
 }
 
-func (c *client) Delete(ctx context.Context, schedulerName string) error {
+func (c *client) Delete(ctx context.Context, scheduleName string) error {
 	if c.client == nil {
 		return errors.New("no scheduler client provided")
 	}
 
 	_, err := c.client.DeleteSchedule(ctx, &scheduler.DeleteScheduleInput{
-		Name: &schedulerName,
+		Name: &scheduleName,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete schedule: %w", err)
