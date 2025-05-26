@@ -50,6 +50,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
+	"github.com/mickamy/go-sqs-worker/contexts"
 	"github.com/mickamy/go-sqs-worker/internal/redis"
 	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/job"
@@ -269,6 +270,7 @@ func (c *Consumer) Process(ctx context.Context, s string) (output Output) {
 		)
 	}
 
+	ctx = contexts.SetMessageID(ctx, msg.ID.String())
 	return c.ProcessMessage(ctx, msg)
 }
 
