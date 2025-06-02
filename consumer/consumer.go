@@ -64,10 +64,10 @@ var (
 )
 
 // BeforeProcessFunc is a function that is executed before processing a message.
-type BeforeProcessFunc func(ctx context.Context, msg message.Message) error
+type BeforeProcessFunc func(ctx context.Context, msg message.Message) (context.Context, error)
 
 // AfterProcessFunc is a function that is executed after processing a message.
-type AfterProcessFunc func(ctx context.Context, output Output) error
+type AfterProcessFunc func(ctx context.Context, output Output) (context.Context, error)
 
 // Config represents the configuration for a Consumer.
 // It includes settings for the worker queue, dead letter queue, retry logic, and SQS-specific options.
@@ -151,10 +151,10 @@ func newConfig(c Config) Config {
 		c.TimeoutSeconds = 300
 	}
 	if c.BeforeProcessFunc == nil {
-		c.BeforeProcessFunc = func(context.Context, message.Message) error { return nil }
+		c.BeforeProcessFunc = func(ctx context.Context, m message.Message) (context.Context, error) { return ctx, nil }
 	}
 	if c.AfterProcessFunc == nil {
-		c.AfterProcessFunc = func(context.Context, Output) error { return nil }
+		c.AfterProcessFunc = func(ctx context.Context, o Output) (context.Context, error) { return ctx, nil }
 	}
 
 	return c
@@ -235,7 +235,8 @@ func (c *Consumer) Do(ctx context.Context) {
 			}
 
 			output := c.Process(consumerCtx, *m)
-			if afterProcessErr := c.afterProcess(consumerCtx, output); afterProcessErr != nil {
+			consumerCtx, afterProcessErr := c.afterProcess(consumerCtx, output)
+			if afterProcessErr != nil {
 				c.retry(consumerCtx, output.Message, afterProcessErr)
 				cancel()
 				continue
@@ -293,7 +294,8 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 		return nonFatalOutput(errors.New("message should not be processed")).withMessage(msg)
 	}
 
-	if beforeProcessErr := c.beforeProcess(ctx, msg); beforeProcessErr != nil {
+	ctx, beforeProcessErr := c.beforeProcess(ctx, msg)
+	if beforeProcessErr != nil {
 		return c.retry(ctx, msg, beforeProcessErr)
 	}
 
@@ -394,28 +396,30 @@ func (c *Consumer) calculateBackoff(retries int) int {
 	return int(math.Min(delay, float64(c.cfg.MaxDelay)))
 }
 
-func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) error {
+func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) (context.Context, error) {
 	if c.cfg.useRedis() {
 		if err := c.redis.UpdateMessage(ctx, msg); err != nil {
-			return fmt.Errorf("failed to set status before processing: %w", err)
+			return ctx, fmt.Errorf("failed to set status before processing: %w", err)
 		}
 	}
-	if err := c.cfg.BeforeProcessFunc(ctx, msg); err != nil {
-		return fmt.Errorf("before process failed: %w", err)
+	ctx, err := c.cfg.BeforeProcessFunc(ctx, msg)
+	if err != nil {
+		return ctx, fmt.Errorf("before process failed: %w", err)
 	}
-	return nil
+	return ctx, nil
 }
 
-func (c *Consumer) afterProcess(ctx context.Context, output Output) error {
+func (c *Consumer) afterProcess(ctx context.Context, output Output) (context.Context, error) {
 	if c.cfg.useRedis() && output.Message.ID != uuid.Nil {
 		if err := c.redis.UpdateMessage(ctx, output.Message); err != nil {
-			return fmt.Errorf("failed to set status after processing: %w", err)
+			return ctx, fmt.Errorf("failed to set status after processing: %w", err)
 		}
 	}
-	if err := c.cfg.AfterProcessFunc(ctx, output); err != nil {
-		return fmt.Errorf("after process failed: %w", err)
+	ctx, err := c.cfg.AfterProcessFunc(ctx, output)
+	if err != nil {
+		return ctx, fmt.Errorf("after process failed: %w", err)
 	}
-	return nil
+	return ctx, nil
 }
 
 // parse parses a message to a message.Message
