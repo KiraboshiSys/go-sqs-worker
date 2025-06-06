@@ -182,6 +182,10 @@ func (p *Producer) DoScheduled(ctx context.Context, scheduleName string, msg mes
 		scheduleName = msg.ID.String()
 	}
 
+	if err := p.beforeProduce(ctx, msg); err != nil {
+		return err
+	}
+
 	if err := p.scheduler.EnqueueToSQS(ctx, scheduleName, msg, at); err != nil {
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
