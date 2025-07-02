@@ -34,20 +34,20 @@ func main() {
 		MaxRetry:           3,
 		BaseDelay:          1,
 		MaxDelay:           10,
-		BeforeProcessFunc: func(ctx context.Context, msg message.Message) error {
+		BeforeProcessFunc: func(ctx context.Context, msg message.Message) (context.Context, error) {
 			fmt.Println("processing message", "id", msg.ID)
-			return nil
+			return ctx, nil
 		},
-		AfterProcessFunc: func(ctx context.Context, output consumer.Output) error {
+		AfterProcessFunc: func(ctx context.Context, output consumer.Output) (context.Context, error) {
 			if err := output.FatalError(); err != nil {
 				fmt.Println("fatal error occurred", "id", output.Message.ID, "error", err)
-				return nil
+				return ctx, nil
 			} else if err := output.NonFatalError(); err != nil {
 				fmt.Println("non-fatal error occurred", "id", output.Message.ID, "error", err)
-				return nil
+				return ctx, nil
 			} else {
 				fmt.Println("message processed", "id", output.Message.ID)
-				return nil
+				return ctx, nil
 			}
 		},
 	}
