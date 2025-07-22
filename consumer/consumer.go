@@ -181,7 +181,6 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 	if cfg.useRedis() {
 		rds, err := redis.New(redis.Config{
 			URL: cfg.RedisURL,
-			TTL: time.Hour * 24,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Redis client: %w", err)
@@ -411,8 +410,14 @@ func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) (cont
 
 func (c *Consumer) afterProcess(ctx context.Context, output Output) (context.Context, error) {
 	if c.cfg.useRedis() && output.Message.ID != uuid.Nil {
-		if err := c.redis.UpdateMessage(ctx, output.Message); err != nil {
-			return ctx, fmt.Errorf("failed to set status after processing: %w", err)
+		if output.Message.Status == message.Success {
+			if err := c.redis.DeleteMessage(ctx, output.Message.ID); err != nil {
+				return ctx, fmt.Errorf("failed to delete message after processing: %w", err)
+			}
+		} else {
+			if err := c.redis.UpdateMessage(ctx, output.Message); err != nil {
+				return ctx, fmt.Errorf("failed to set status after processing: %w", err)
+			}
 		}
 	}
 	ctx, err := c.cfg.AfterProcessFunc(ctx, output)

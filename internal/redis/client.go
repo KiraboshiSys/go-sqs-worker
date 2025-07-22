@@ -31,7 +31,6 @@ var (
 
 type Config struct {
 	URL     string
-	TTL     time.Duration
 	LockTTL time.Duration
 }
 
@@ -44,9 +43,6 @@ func New(cfg Config) (*Client, error) {
 	opts, err := redis.ParseURL(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
-	}
-	if cfg.TTL == time.Duration(0) {
-		cfg.TTL = time.Hour * 24
 	}
 	if cfg.LockTTL == time.Duration(0) {
 		cfg.LockTTL = time.Second * 5
@@ -89,7 +85,7 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 		return ErrMissingMessageID
 	}
 	key := fmt.Sprintf("%s:%s", _messagesKey, msg.ID.String())
-	lockValue, err := c.lockKey(ctx, key, c.cfg.TTL)
+	lockValue, err := c.lockKey(ctx, key, c.cfg.LockTTL)
 	if err != nil {
 		return fmt.Errorf("failed to lock key: %w", err)
 	}
@@ -101,7 +97,7 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 
 	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
 		newStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
-		if err := pipeliner.Set(ctx, newStatusKey, "", c.cfg.TTL).Err(); err != nil {
+		if err := pipeliner.Set(ctx, newStatusKey, "", 0).Err(); err != nil {
 			return fmt.Errorf("failed to set new status: %w", err)
 		}
 
@@ -114,10 +110,6 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 
 		if err := pipeliner.HSet(ctx, key, messageToMap(msg)).Err(); err != nil {
 			return fmt.Errorf("failed to set message: %w", err)
-		}
-
-		if err := pipeliner.Expire(ctx, key, c.cfg.TTL).Err(); err != nil {
-			return fmt.Errorf("failed to set TTL for message: %w", err)
 		}
 
 		return nil
@@ -142,7 +134,7 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 		return ErrMissingMessageID
 	}
 	key := fmt.Sprintf("%s:%s", _messagesKey, msg.ID.String())
-	lockValue, err := c.lockKey(ctx, key, c.cfg.TTL)
+	lockValue, err := c.lockKey(ctx, key, c.cfg.LockTTL)
 	if err != nil {
 		return fmt.Errorf("failed to lock key: %w", err)
 	}
@@ -154,7 +146,7 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 
 	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
 		newStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
-		if err := pipeliner.Set(ctx, newStatusKey, "", c.cfg.TTL).Err(); err != nil {
+		if err := pipeliner.Set(ctx, newStatusKey, "", 0).Err(); err != nil {
 			return fmt.Errorf("failed to set new status: %w", err)
 		}
 
@@ -167,6 +159,53 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 
 		if err := pipeliner.HSet(ctx, key, "status", msg.Status.String(), "retry_count", msg.RetryCount, "updated_at", msg.UpdatedAt.Format(timeLayout)).Err(); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to execute pipeline: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteMessage deletes the message and its status from Redis.
+// It ensures the operation is atomic by acquiring a lock on the key.
+func (c *Client) DeleteMessage(ctx context.Context, id uuid.UUID) (err error) {
+	if id == uuid.Nil {
+		return ErrMissingMessageID
+	}
+	key := fmt.Sprintf("%s:%s", _messagesKey, id.String())
+	lockValue, err := c.lockKey(ctx, key, c.cfg.LockTTL)
+	if err != nil {
+		return fmt.Errorf("failed to lock key: %w", err)
+	}
+	defer func() {
+		if unlockErr := c.unlockKey(ctx, key, lockValue); unlockErr != nil {
+			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %w", key, unlockErr))
+		}
+	}()
+
+	// get all status keys for the message
+	statusPattern := fmt.Sprintf("%s:%s:*", _statusesKey, id.String())
+	statusKeys, err := c.client.Keys(ctx, statusPattern).Result()
+	if err != nil {
+		return fmt.Errorf("failed to get status keys: %w", err)
+	}
+
+	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
+		// delete message key
+		if err := pipeliner.Del(ctx, key).Err(); err != nil {
+			return fmt.Errorf("failed to delete message: %w", err)
+		}
+
+		// delete all status keys
+		if len(statusKeys) > 0 {
+			if err := pipeliner.Del(ctx, statusKeys...).Err(); err != nil {
+				return fmt.Errorf("failed to delete status keys: %w", err)
+			}
 		}
 
 		return nil

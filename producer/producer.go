@@ -115,7 +115,6 @@ func New(cfg Config, sqsClient *sqs.Client, scheduler *scheduler.Client) (*Produ
 	if cfg.RedisURL != "" {
 		rds, err := redis.New(redis.Config{
 			URL: cfg.RedisURL,
-			TTL: time.Hour * 24,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Redis client: %w", err)
