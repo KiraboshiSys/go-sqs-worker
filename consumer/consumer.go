@@ -329,7 +329,7 @@ func (c *Consumer) shouldProcess(ctx context.Context, msg message.Message) bool 
 // execute executes a job and returns the Output
 func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) Output {
 	if err := j.Execute(ctx, msg.Payload); err != nil {
-		if msg.RetryCount < c.cfg.MaxRetry {
+		if !errors.Is(err, job.ErrNonRetryable) && msg.RetryCount < c.cfg.MaxRetry {
 			return c.retry(ctx, msg, err)
 		}
 
