@@ -35,6 +35,7 @@ package producer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"runtime"
 	"time"
@@ -149,22 +150,22 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 		return fmt.Errorf("failed to marshal message: %s", err)
 	}
 
-	if p.redis != nil {
-		if err := p.redis.SetMessage(ctx, msg); err != nil {
-			return fmt.Errorf("failed to set message to Redis: %w", err)
-		}
-	}
-
 	if err := p.beforeProduce(ctx, msg); err != nil {
-		return err
+		return fmt.Errorf("failed to execute before produce function: %w", err)
 	}
 
 	if err := p.sqs.Enqueue(ctx, p.cfg.WorkerQueueURL, string(bytes)); err != nil {
+		if cleanUpErr := p.cleanUpBeforeProduce(ctx, msg); cleanUpErr != nil {
+			return errors.Join(
+				fmt.Errorf("failed to enqueue message: %w", err),
+				fmt.Errorf("failed to clean up before produce: %w", cleanUpErr),
+			)
+		}
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
 
 	if err := p.afterProduce(ctx, msg); err != nil {
-		return err
+		return fmt.Errorf("failed to execute after produce function: %w", err)
 	}
 
 	return nil
@@ -182,15 +183,21 @@ func (p *Producer) DoScheduled(ctx context.Context, scheduleName string, msg mes
 	}
 
 	if err := p.beforeProduce(ctx, msg); err != nil {
-		return err
+		return fmt.Errorf("failed to execute before produce function: %w", err)
 	}
 
 	if err := p.scheduler.EnqueueToSQS(ctx, scheduleName, msg, at); err != nil {
+		if cleanUpErr := p.cleanUpBeforeProduce(ctx, msg); cleanUpErr != nil {
+			return errors.Join(
+				fmt.Errorf("failed to enqueue message: %w", err),
+				fmt.Errorf("failed to clean up before produce: %w", cleanUpErr),
+			)
+		}
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
 
 	if err := p.afterProduce(ctx, msg); err != nil {
-		return err
+		return fmt.Errorf("failed to execute after produce function: %w", err)
 	}
 
 	return nil
@@ -218,6 +225,16 @@ func (p *Producer) beforeProduce(ctx context.Context, msg message.Message) error
 	if p.cfg.BeforeProduceFunc != nil {
 		if err := p.cfg.BeforeProduceFunc(ctx, msg); err != nil {
 			return fmt.Errorf("failed to call before produce function: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (p *Producer) cleanUpBeforeProduce(ctx context.Context, msg message.Message) error {
+	if p.redis != nil {
+		if err := p.redis.DeleteMessage(ctx, msg.ID); err != nil {
+			return fmt.Errorf("failed to delete message from Redis: %w", err)
 		}
 	}
 
