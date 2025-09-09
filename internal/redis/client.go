@@ -218,6 +218,71 @@ func (c *Client) DeleteMessage(ctx context.Context, id uuid.UUID) (err error) {
 	return nil
 }
 
+func (c *Client) ListMessageIDs(ctx context.Context, status message.Status) ([]uuid.UUID, error) {
+	pattern := fmt.Sprintf("%s:*:%s", _statusesKey, status.String())
+	keys, err := c.client.Keys(ctx, pattern).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get keys for pattern [%s]: %w", pattern, err)
+	}
+
+	var ids []uuid.UUID
+	for _, key := range keys {
+		parts := strings.Split(key, ":")
+		if len(parts) < 3 {
+			continue // skip invalid keys
+		}
+		idStr := parts[2]
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			continue // skip invalid UUIDs
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
+func (c *Client) GetMessage(ctx context.Context, id uuid.UUID) (message.Message, error) {
+	if id == uuid.Nil {
+		return message.Message{}, ErrMissingMessageID
+	}
+	key := fmt.Sprintf("%s:%s", _messagesKey, id.String())
+
+	data, err := c.client.HGetAll(ctx, key).Result()
+	if err != nil {
+		return message.Message{}, fmt.Errorf("failed to get message: %w", err)
+	}
+	if len(data) == 0 {
+		return message.Message{}, fmt.Errorf("message not found: id=[%s]", id)
+	}
+
+	retryCount, err := strconv.Atoi(data["retry_count"])
+	if err != nil {
+		return message.Message{}, fmt.Errorf("invalid retry_count: %w", err)
+	}
+
+	createdAt, err := time.Parse(timeLayout, data["created_at"])
+	if err != nil {
+		return message.Message{}, fmt.Errorf("invalid created_at: %w", err)
+	}
+
+	updatedAt, err := time.Parse(timeLayout, data["updated_at"])
+	if err != nil {
+		return message.Message{}, fmt.Errorf("invalid updated_at: %w", err)
+	}
+
+	return message.Message{
+		ID:         id,
+		Type:       data["type"],
+		Payload:    data["payload"],
+		Status:     message.Status(data["status"]),
+		RetryCount: retryCount,
+		Caller:     data["caller"],
+		CreatedAt:  createdAt,
+		UpdatedAt:  updatedAt,
+	}, nil
+}
+
 func (c *Client) lockKey(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	lockKey := fmt.Sprintf("%s:%s", _locks, key)
 	lockValue := uuid.New().String() // unique identifier for the lock

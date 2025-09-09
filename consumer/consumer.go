@@ -61,6 +61,7 @@ var (
 	validate = validator.New()
 
 	ErrSuccessfullyRetried = errors.New("failed to execute job; retried successfully")
+	ErrRedisNotConfigured  = errors.New("redis is not configured")
 )
 
 // BeforeProcessFunc is a function that is executed before processing a message.
@@ -311,6 +312,22 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 	}
 
 	return c.execute(ctx, j, msg)
+}
+
+// ListMessageIDs lists message IDs with the given status.
+func (c *Consumer) ListMessageIDs(ctx context.Context, status message.Status) ([]uuid.UUID, error) {
+	if !c.cfg.useRedis() {
+		return nil, ErrRedisNotConfigured
+	}
+	return c.redis.ListMessageIDs(ctx, status)
+}
+
+// GetMessage retrieves a message by its ID.
+func (c *Consumer) GetMessage(ctx context.Context, id uuid.UUID) (message.Message, error) {
+	if !c.cfg.useRedis() {
+		return message.Message{}, ErrRedisNotConfigured
+	}
+	return c.redis.GetMessage(ctx, id)
 }
 
 // shouldProcess returns true if the message should be processed.
