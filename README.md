@@ -163,7 +163,7 @@ This setup allows go-sqs-worker-viewer to display job statuses and processing me
 - **BaseDelay**: Optional. The initial delay (in seconds) before retrying a failed job. This value is used as the base
   for calculating exponential backoff delays. The default value is 30 seconds.
 - **MaxDelay**: Optional. The maximum delay (in seconds) between retries, used to cap the exponential backoff delay. The
-  default value is 3600 seconds (1 hour).
+  default value is 900 seconds (which is the maximum visibility timeout for SQS).
 - **WaitTimeSeconds**: Optional. The maximum time (in seconds) to wait for a message to be received from the SQS queue.
   This value is used for long polling. The default value is 20 seconds. The maximum allowed value
   is [20 seconds](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html).

@@ -101,7 +101,7 @@ type Config struct {
 
 	// MaxDelay is the maximum delay (in seconds) between retries.
 	// This value is used to cap the exponential backoff delay.
-	// If not set, the default value is 3600 seconds (1 hour).
+	// If not set, the default value is 900 seconds (which is the maximum allowed by SQS).
 	MaxDelay int
 
 	// WaitTimeSeconds is the maximum time (in seconds) to wait for a message to be received from the SQS queue.
@@ -143,7 +143,7 @@ func newConfig(c Config) Config {
 		c.BaseDelay = 30
 	}
 	if c.MaxDelay == 0 {
-		c.MaxDelay = 3600
+		c.MaxDelay = 900
 	}
 	if c.WaitTimeSeconds == 0 {
 		c.WaitTimeSeconds = 20
