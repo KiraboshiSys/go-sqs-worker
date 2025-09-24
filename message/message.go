@@ -164,7 +164,7 @@ func (m *Message) Failed() Message {
 }
 
 // New creates a new Message
-func New(ctx context.Context, jobType string, payload any) (Message, error) {
+func New(ctx context.Context, jobType fmt.Stringer, payload any) (Message, error) {
 	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return Message{}, fmt.Errorf("failed to marshal payload: %w", err)
@@ -174,7 +174,7 @@ func New(ctx context.Context, jobType string, payload any) (Message, error) {
 	}
 	return Message{
 		ID:         uuid.New(),
-		Type:       jobType,
+		Type:       jobType.String(),
 		Payload:    string(bytes),
 		Status:     Queued,
 		RetryCount: 0,

@@ -68,7 +68,7 @@ func main() {
 			fmt.Println("shutting down producer")
 			return
 		case <-failingJobTicker.C:
-			msg, err := message.New(ctx, job.FailingJobType.String(), job.FailingJobPayload{
+			msg, err := message.New(ctx, job.FailingJobType, job.FailingJobPayload{
 				Message: "hello failing job",
 			})
 			if err != nil {
@@ -80,7 +80,7 @@ func main() {
 				continue
 			}
 		case <-flakyJobTicker.C:
-			msg, err := message.New(ctx, job.FlakyJobType.String(), job.FlakyJobPayload{
+			msg, err := message.New(ctx, job.FlakyJobType, job.FlakyJobPayload{
 				Message: "hello flaky job",
 			})
 			if err != nil {
@@ -92,7 +92,7 @@ func main() {
 				continue
 			}
 		case <-heavyJobTicker.C:
-			msg, err := message.New(ctx, job.HeavyJobType.String(), job.HeavyJobPayload{
+			msg, err := message.New(ctx, job.HeavyJobType, job.HeavyJobPayload{
 				Message: "hello heavy job",
 			})
 			if err != nil {
@@ -104,7 +104,7 @@ func main() {
 				continue
 			}
 		case <-successfulJobTicker.C:
-			msg, err := message.New(ctx, job.SuccessfulJobType.String(), job.SuccessfulJobPayload{
+			msg, err := message.New(ctx, job.SuccessfulJobType, job.SuccessfulJobPayload{
 				Message: "hello",
 			})
 			if err != nil {
