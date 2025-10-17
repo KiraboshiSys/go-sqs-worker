@@ -35,6 +35,26 @@ type testJob struct {
 	ExecuteFunc func() error
 }
 
+type schedulerSpy struct {
+	called       bool
+	scheduleName string
+	message      message.Message
+	runAt        time.Time
+	err          error
+}
+
+func (s *schedulerSpy) EnqueueToSQS(ctx context.Context, scheduleName string, msg message.Message, at time.Time) error {
+	s.called = true
+	s.scheduleName = scheduleName
+	s.message = msg
+	s.runAt = at
+	return s.err
+}
+
+func (s *schedulerSpy) Delete(ctx context.Context, scheduleName string) error {
+	return nil
+}
+
 func (j testJob) Execute(ctx context.Context, payloadStr string) error {
 	if j.ExecuteFunc != nil {
 		return j.ExecuteFunc()
@@ -163,7 +183,7 @@ func TestConsumer_Process(t *testing.T) {
 			assert.NoError(t, err)
 
 			// act
-			sut, err := newConsumer(cfg, sqsMock, getJob)
+			sut, err := newConsumer(cfg, sqsMock, nil, getJob)
 			assert.NoError(t, err)
 			got := sut.Process(context.Background(), string(bytes))
 
@@ -171,6 +191,84 @@ func TestConsumer_Process(t *testing.T) {
 			tc.assert(t, got)
 		})
 	}
+}
+
+func TestConsumer_doRetry_usesSchedulerWhenDelayExceedsLimit(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sqsMock := mock_sqs.NewMockClient(ctrl)
+
+	spy := &schedulerSpy{}
+	cfgWithScheduler := Config{
+		WorkerQueueURL:     cfg.WorkerQueueURL,
+		WorkerQueueARN:     "arn:aws:sqs:us-east-1:000000000000:worker-queue",
+		SchedulerRoleARN:   "arn:aws:iam::000000000000:role/scheduler-role",
+		SchedulerTimeZone:  "UTC",
+		MaxDelay:           3600,
+		BaseDelay:          cfg.BaseDelay,
+		DeadLetterQueueURL: cfg.DeadLetterQueueURL,
+	}
+
+	consumer, err := newConsumer(cfgWithScheduler, sqsMock, spy, getJob)
+	assert.NoError(t, err)
+
+	msg := message.Message{
+		ID:         uuid.New(),
+		Type:       string(testJobType),
+		Status:     message.Retrying,
+		RetryCount: 6,
+		Caller:     caller(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	expectedDelay := consumer.calculateBackoff(msg.RetryCount)
+	assert.Greater(t, expectedDelay, maxSQSDelaySeconds)
+
+	now := time.Now()
+	err = consumer.doRetry(context.Background(), msg)
+	assert.NoError(t, err)
+	assert.True(t, spy.called)
+	assert.Equal(t, fmt.Sprintf("%s-retry-%d", msg.ID.String(), msg.RetryCount), spy.scheduleName)
+	assert.Equal(t, msg, spy.message)
+	expectedRunAt := now.Add(time.Duration(expectedDelay) * time.Second)
+	assert.WithinDuration(t, expectedRunAt, spy.runAt, 2*time.Second)
+}
+
+func TestConsumer_doRetry_returnsErrorWithoutSchedulerForLongDelay(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sqsMock := mock_sqs.NewMockClient(ctrl)
+
+	cfgWithoutScheduler := Config{
+		WorkerQueueURL:     cfg.WorkerQueueURL,
+		MaxDelay:           3600,
+		BaseDelay:          cfg.BaseDelay,
+		DeadLetterQueueURL: cfg.DeadLetterQueueURL,
+	}
+
+	consumer, err := newConsumer(cfgWithoutScheduler, sqsMock, nil, getJob)
+	assert.NoError(t, err)
+
+	msg := message.Message{
+		ID:         uuid.New(),
+		Type:       string(testJobType),
+		Status:     message.Retrying,
+		RetryCount: 6,
+		Caller:     caller(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	err = consumer.doRetry(context.Background(), msg)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "scheduler is not configured")
 }
 
 func TestConsumer_execute(t *testing.T) {
@@ -310,7 +408,7 @@ func TestConsumer_execute(t *testing.T) {
 			testJob := tc.arrange(sqsMock)
 
 			// act
-			sut, err := newConsumer(cfg, sqsMock, getJob)
+			sut, err := newConsumer(cfg, sqsMock, nil, getJob)
 			assert.NoError(t, err)
 			out := sut.execute(context.Background(), testJob, msg)
 

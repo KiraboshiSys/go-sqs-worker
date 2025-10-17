@@ -90,11 +90,13 @@ func main() {
 
 	cfg := consumer.Config{
 		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+		WorkerQueueARN:     "arn:aws:sqs:ap-northeast-1:000000000000:worker-queue",
+		SchedulerRoleARN:   "arn:aws:iam::000000000000:role/scheduler-role",
+		SchedulerTimeZone:  "UTC",
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 	}
 
-	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), job.GetJobHandler)
-
+	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), aws.NewSchedulerClient(ctx), job.GetJobHandler)
 	if err != nil {
 		fmt.Println("failed to create consumer", "error", err)
 		return
@@ -154,6 +156,12 @@ This setup allows go-sqs-worker-viewer to display job statuses and processing me
 ### Consumer Configuration
 
 - **WorkerQueueURL**: Required. The URL of the SQS queue where worker messages are stored.
+- **WorkerQueueARN**: Optional. The ARN of the SQS queue where worker messages are stored. This is required when
+  enabling delayed retries via EventBridge Scheduler.
+- **SchedulerRoleARN**: Optional. The ARN of the IAM role used by EventBridge Scheduler. This is required when enabling
+  delayed retries via EventBridge Scheduler.
+- **SchedulerTimeZone**: Optional. The time zone used by EventBridge Scheduler. This is required when enabling delayed
+  retries via EventBridge Scheduler.
 - **DeadLetterQueueURL**: Optional. The URL of the Dead Letter Queue (DLQ) for messages that fail to process after the
   maximum number of retries. If not set, the DLQ is not used.
 - **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for

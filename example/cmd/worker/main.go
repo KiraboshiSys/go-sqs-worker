@@ -29,6 +29,9 @@ func main() {
 
 	cfg := consumer.Config{
 		WorkerQueueURL:     "http://localhost.localstack.cloud:4566/000000000000/worker-queue",
+		WorkerQueueARN:     "arn:aws:sqs:ap-northeast-1:000000000000:worker-queue",
+		SchedulerRoleARN:   "arn:aws:iam::000000000000:role/scheduler-role",
+		SchedulerTimeZone:  "UTC",
 		DeadLetterQueueURL: "http://localhost.localstack.cloud:4566/000000000000/dead-letter-queue",
 		RedisURL:           redisURL,
 		MaxRetry:           3,
@@ -63,7 +66,7 @@ func main() {
 		return job.Get(s, jobs)
 	}
 
-	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), getJobFunc)
+	c, err := consumer.New(cfg, aws.NewSQSClient(ctx), aws.NewSchedulerClient(ctx), getJobFunc)
 	if err != nil {
 		fmt.Println("failed to create consumer", "error", err)
 		os.Exit(1)

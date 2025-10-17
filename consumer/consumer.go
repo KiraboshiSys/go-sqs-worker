@@ -23,7 +23,7 @@ Usage:
 
 To create a new consumer, use the New function:
 
-	c, err := consumer.New(cfg, sqsClient, job.GetJobHandler)
+	c, err := consumer.New(cfg, sqsClient, schedulerClient, job.GetJobHandler)
 	if err != nil {
 	    // handle error
 	}
@@ -46,12 +46,14 @@ import (
 	"math"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/scheduler"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	"github.com/mickamy/go-sqs-worker/contexts"
 	"github.com/mickamy/go-sqs-worker/internal/redis"
+	internalScheduler "github.com/mickamy/go-sqs-worker/internal/scheduler"
 	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
 	"github.com/mickamy/go-sqs-worker/job"
 	"github.com/mickamy/go-sqs-worker/message"
@@ -63,6 +65,8 @@ var (
 	ErrSuccessfullyRetried = errors.New("failed to execute job; retried successfully")
 	ErrRedisNotConfigured  = errors.New("redis is not configured")
 )
+
+const maxSQSDelaySeconds = 900
 
 // BeforeProcessFunc is a function that is executed before processing a message.
 type BeforeProcessFunc func(ctx context.Context, msg message.Message) (context.Context, error)
@@ -77,6 +81,18 @@ type Config struct {
 	// This queue is used to store messages that need to be processed by the worker.
 	// It is a required configuration parameter.
 	WorkerQueueURL string
+
+	// WorkerQueueARN is the ARN of the worker queue.
+	// This is required when using EventBridge Scheduler for retries.
+	WorkerQueueARN string
+
+	// SchedulerRoleARN is the ARN of the IAM role EventBridge Scheduler uses when invoking the schedule.
+	// This is required when using EventBridge Scheduler for retries.
+	SchedulerRoleARN string
+
+	// SchedulerTimeZone is the timezone used by EventBridge Scheduler when creating schedules.
+	// This is required when using EventBridge Scheduler for retries.
+	SchedulerTimeZone string
 
 	// DeadLetterQueueURL is the URL of the dead letter queue.
 	// If not set, the dead letter queue is not used.
@@ -135,6 +151,10 @@ func (c Config) useRedis() bool {
 	return c.RedisURL != ""
 }
 
+func (c Config) useScheduler() bool {
+	return c.WorkerQueueARN != "" && c.SchedulerRoleARN != "" && c.SchedulerTimeZone != ""
+}
+
 func newConfig(c Config) Config {
 	if c.MaxRetry == 0 {
 		c.MaxRetry = 5
@@ -165,20 +185,28 @@ func newConfig(c Config) Config {
 type Consumer struct {
 	cfg        Config
 	sqsClient  internalSQS.Client
+	scheduler  internalScheduler.Client
 	getJobFunc job.GetFunc
 	redis      *redis.Client
 }
 
 // New creates a new Consumer
-func New(cfg Config, client *sqs.Client, getJobFunc job.GetFunc) (*Consumer, error) {
-	return newConsumer(cfg, internalSQS.New(client), getJobFunc)
+func New(cfg Config, client *sqs.Client, schedulerClient *scheduler.Client, getJobFunc job.GetFunc) (*Consumer, error) {
+	var internalSchedulerClient internalScheduler.Client
+	if cfg.useScheduler() {
+		internalSchedulerClient = internalScheduler.New(schedulerClient, cfg.WorkerQueueARN, cfg.SchedulerRoleARN, cfg.SchedulerTimeZone)
+	}
+	return newConsumer(cfg, internalSQS.New(client), internalSchedulerClient, getJobFunc)
 }
 
-func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) (*Consumer, error) {
+func newConsumer(cfg Config, client internalSQS.Client, scheduler internalScheduler.Client, getJobFunc job.GetFunc) (*Consumer, error) {
 	if getJobFunc == nil {
 		return nil, fmt.Errorf("getJobFunc is required")
 	}
 	cfg = newConfig(cfg)
+	if cfg.useScheduler() && scheduler == nil {
+		return nil, fmt.Errorf("scheduler client is required when scheduler configuration is provided")
+	}
 	if cfg.useRedis() {
 		rds, err := redis.New(redis.Config{
 			URL: cfg.RedisURL,
@@ -189,6 +217,7 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 		return &Consumer{
 			cfg:        cfg,
 			sqsClient:  client,
+			scheduler:  scheduler,
 			getJobFunc: getJobFunc,
 			redis:      rds,
 		}, nil
@@ -196,6 +225,7 @@ func newConsumer(cfg Config, client internalSQS.Client, getJobFunc job.GetFunc) 
 	return &Consumer{
 		cfg:        cfg,
 		sqsClient:  client,
+		scheduler:  scheduler,
 		getJobFunc: getJobFunc,
 	}, nil
 }
@@ -381,13 +411,29 @@ func (c *Consumer) retry(ctx context.Context, msg message.Message, err error) Ou
 
 // doRetry retries a job with exponential backoff
 func (c *Consumer) doRetry(ctx context.Context, msg message.Message) error {
-	bytes, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message on retry: %w", err)
+	delaySeconds := c.calculateBackoff(msg.RetryCount)
+
+	if delaySeconds <= maxSQSDelaySeconds {
+		bytes, err := json.Marshal(msg)
+		if err != nil {
+			return fmt.Errorf("failed to marshal message on retry: %w", err)
+		}
+		if enqueueErr := c.sqsClient.EnqueueWithDelay(ctx, c.cfg.WorkerQueueURL, string(bytes), delaySeconds); enqueueErr != nil {
+			return fmt.Errorf("faild to enqueue on retry: %w", enqueueErr)
+		}
+		return nil
 	}
-	if enqueueErr := c.sqsClient.EnqueueWithDelay(ctx, c.cfg.WorkerQueueURL, string(bytes), c.calculateBackoff(msg.RetryCount)); enqueueErr != nil {
-		return fmt.Errorf("faild to enqueue on retry: %w", enqueueErr)
+
+	if c.scheduler == nil {
+		return fmt.Errorf("delay %d exceeds %d seconds but scheduler is not configured", delaySeconds, maxSQSDelaySeconds)
 	}
+
+	scheduleName := fmt.Sprintf("%s-retry-%d", msg.ID.String(), msg.RetryCount)
+	runAt := time.Now().Add(time.Duration(delaySeconds) * time.Second)
+	if err := c.scheduler.EnqueueToSQS(ctx, scheduleName, msg, runAt); err != nil {
+		return fmt.Errorf("failed to enqueue on retry via scheduler: %w", err)
+	}
+
 	return nil
 }
 
