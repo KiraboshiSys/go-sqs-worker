@@ -171,7 +171,7 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 	return nil
 }
 
-func (p *Producer) DoScheduled(ctx context.Context, scheduleName string, msg message.Message, at time.Time) error {
+func (p *Producer) Schedule(ctx context.Context, scheduleName string, msg message.Message, at time.Time) error {
 	msg = setCaller(msg)
 
 	if err := validate.StructCtx(ctx, msg); err != nil {
