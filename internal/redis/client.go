@@ -2,8 +2,10 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -39,8 +41,52 @@ type Client struct {
 	client *redis.Client
 }
 
+func parseURL(rawURL string) (*redis.Options, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid redis URL: %w", err)
+	}
+
+	if u.Scheme != "redis" && u.Scheme != "rediss" && u.Scheme != "valkey" {
+		return nil, fmt.Errorf("unsupported scheme: %s", u.Scheme)
+	}
+
+	var username, password string
+	if u.User != nil {
+		username = u.User.Username()
+		password, _ = u.User.Password()
+	}
+
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		port = "6379"
+	}
+
+	db := 0
+	if strings.TrimPrefix(u.Path, "/") != "" {
+		db, err = strconv.Atoi(strings.TrimPrefix(u.Path, "/"))
+		if err != nil {
+			return nil, fmt.Errorf("invalid db number: %w", err)
+		}
+	}
+
+	opts := &redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", host, port),
+		Username: username,
+		Password: password,
+		DB:       db,
+	}
+
+	if u.Scheme == "rediss" {
+		opts.TLSConfig = &tls.Config{}
+	}
+
+	return opts, nil
+}
+
 func New(cfg Config) (*Client, error) {
-	opts, err := redis.ParseURL(cfg.URL)
+	opts, err := parseURL(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}

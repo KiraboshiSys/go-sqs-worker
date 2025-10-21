@@ -120,7 +120,7 @@ make up
 
 For monitoring and managing jobs in real-time,
 use [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer). Configure RedisURL in the consumer/producer
-to enable integration:
+to enable integration. Redis-compatible servers such as Redis or Valkey are supported:
 
 ```
 consumer.Config{
@@ -134,6 +134,8 @@ producer.Config{
 ```
 
 This setup allows go-sqs-worker-viewer to display job statuses and processing metrics.
+If you prefer configuration via environment variables, set `REDIS_URL` to the connection string of your Redis or Valkey
+instance.
 
 ## Configuration
 
@@ -149,8 +151,8 @@ This setup allows go-sqs-worker-viewer to display job statuses and processing me
 - **BeforeProduceFunc**: Optional. A function to execute before a message is produced. The default function does
   nothing.
 - **AfterProduceFunc**: Optional. A function to execute after a message is produced. The default function does nothing.
-- **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for
-  tracking job-related data during processing, especially when used
+- **RedisURL**: Optional. The URL of the Redis-compatible server (e.g., Redis, Valkey) for storing job processing status.
+  This is particularly useful for tracking job-related data during processing, especially when used
   with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).
 
 ### Consumer Configuration
@@ -164,8 +166,8 @@ This setup allows go-sqs-worker-viewer to display job statuses and processing me
   retries via EventBridge Scheduler.
 - **DeadLetterQueueURL**: Optional. The URL of the Dead Letter Queue (DLQ) for messages that fail to process after the
   maximum number of retries. If not set, the DLQ is not used.
-- **RedisURL**: Optional. The URL of the Redis server for storing job processing status. This is particularly useful for
-  tracking job-related data during processing, especially when used
+- **RedisURL**: Optional. The URL of the Redis-compatible server (e.g., Redis, Valkey) for storing job processing status.
+  This is particularly useful for tracking job-related data during processing, especially when used
   with [go-sqs-worker-viewer](https://github.com/mickamy/go-sqs-worker-viewer).
 - **MaxRetry**: Optional. The maximum number of retry attempts for a failed job. The default value is 5 retries.
 - **BaseDelay**: Optional. The initial delay (in seconds) before retrying a failed job. This value is used as the base
