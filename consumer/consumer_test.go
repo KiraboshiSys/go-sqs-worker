@@ -9,10 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/mickamy/go-sqs-worker/internal/redis"
 	"github.com/mickamy/go-sqs-worker/internal/sqs/mock_sqs"
 	"github.com/mickamy/go-sqs-worker/job"
 	"github.com/mickamy/go-sqs-worker/message"
@@ -185,12 +188,105 @@ func TestConsumer_Process(t *testing.T) {
 			// act
 			sut, err := newConsumer(cfg, sqsMock, nil, getJob)
 			assert.NoError(t, err)
-			got := sut.Process(context.Background(), string(bytes))
+			got := sut.Process(t.Context(), string(bytes))
 
 			// assert
 			tc.assert(t, got)
 		})
 	}
+}
+
+func TestConsumer_ProcessMessage_skipsWhenStatusProcessingInRedis(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mr := miniredis.RunT(t)
+	redisURL := fmt.Sprintf("redis://%s", mr.Addr())
+
+	rds, err := redis.New(redis.Config{URL: redisURL})
+	require.NoError(t, err)
+
+	msg := message.Message{
+		ID:        uuid.New(),
+		Type:      string(testJobType),
+		Status:    message.Queued,
+		Caller:    caller(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	require.NoError(t, rds.SetMessage(ctx, msg))
+	require.NoError(t, rds.UpdateMessage(ctx, msg.Processing()))
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sqsMock := mock_sqs.NewMockClient(ctrl)
+
+	cfgWithRedis := Config{
+		WorkerQueueURL:     cfg.WorkerQueueURL,
+		DeadLetterQueueURL: cfg.DeadLetterQueueURL,
+		RedisURL:           redisURL,
+	}
+
+	sut, err := newConsumer(cfgWithRedis, sqsMock, nil, getJob)
+	require.NoError(t, err)
+
+	got := sut.ProcessMessage(ctx, msg)
+
+	assert.True(t, got.Fatal)
+	assert.ErrorIs(t, got.Error, ErrMessageAlreadyProcessing)
+	assert.Equal(t, uuid.Nil, got.Message.ID)
+}
+
+func TestConsumer_ProcessMessage_skipsWhenStatusSuccessInRedis(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mr := miniredis.RunT(t)
+	redisURL := fmt.Sprintf("redis://%s", mr.Addr())
+
+	rds, err := redis.New(redis.Config{URL: redisURL})
+	require.NoError(t, err)
+
+	msg := message.Message{
+		ID:        uuid.New(),
+		Type:      string(testJobType),
+		Status:    message.Queued,
+		Caller:    caller(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	require.NoError(t, rds.SetMessage(ctx, msg))
+	processing := msg.Processing()
+	require.NoError(t, rds.UpdateMessage(ctx, processing))
+	require.NoError(t, rds.UpdateMessage(ctx, processing.Success()))
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sqsMock := mock_sqs.NewMockClient(ctrl)
+
+	cfgWithRedis := Config{
+		WorkerQueueURL:     cfg.WorkerQueueURL,
+		DeadLetterQueueURL: cfg.DeadLetterQueueURL,
+		RedisURL:           redisURL,
+	}
+
+	getJobFunc := func(string) (job.Job, error) {
+		t.Fatalf("job execution should not be invoked for already processed messages")
+		return nil, nil
+	}
+
+	sut, err := newConsumer(cfgWithRedis, sqsMock, nil, getJobFunc)
+	require.NoError(t, err)
+
+	got := sut.ProcessMessage(ctx, msg)
+
+	assert.False(t, got.Fatal)
+	assert.ErrorContains(t, got.Error, "message already processed")
+	assert.Equal(t, uuid.Nil, got.Message.ID)
 }
 
 func TestConsumer_doRetry_usesSchedulerWhenDelayExceedsLimit(t *testing.T) {
@@ -229,7 +325,7 @@ func TestConsumer_doRetry_usesSchedulerWhenDelayExceedsLimit(t *testing.T) {
 	assert.Greater(t, expectedDelay, maxSQSDelaySeconds)
 
 	now := time.Now()
-	err = consumer.doRetry(context.Background(), msg)
+	err = consumer.doRetry(t.Context(), msg)
 	assert.NoError(t, err)
 	assert.True(t, spy.called)
 	assert.Equal(t, fmt.Sprintf("%s-retry-%d", msg.ID.String(), msg.RetryCount), spy.scheduleName)
@@ -266,7 +362,7 @@ func TestConsumer_doRetry_returnsErrorWithoutSchedulerForLongDelay(t *testing.T)
 		UpdatedAt:  time.Now(),
 	}
 
-	err = consumer.doRetry(context.Background(), msg)
+	err = consumer.doRetry(t.Context(), msg)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "scheduler is not configured")
 }
@@ -410,7 +506,7 @@ func TestConsumer_execute(t *testing.T) {
 			// act
 			sut, err := newConsumer(cfg, sqsMock, nil, getJob)
 			assert.NoError(t, err)
-			out := sut.execute(context.Background(), testJob, msg)
+			out := sut.execute(t.Context(), testJob, msg)
 
 			// assert
 			tc.assert(t, out)

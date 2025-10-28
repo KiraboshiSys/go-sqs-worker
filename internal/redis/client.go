@@ -27,6 +27,7 @@ var (
 	ErrMissingMessageID = errors.New("missing message ID")
 	ErrStatusNotFound   = errors.New("status not found")
 	ErrMultipleStatuses = errors.New("multiple status keys found")
+	ErrStatusConflict   = errors.New("status conflict")
 	ErrLockHeld         = errors.New("lock already held")
 	ErrUnlockFailed     = errors.New("failed to release lock")
 )
@@ -175,6 +176,9 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 		// no need to update the status
 		return nil
 	}
+	if msg.OldStatus == "" {
+		return fmt.Errorf("old status is required for update: id=[%s]", msg.ID)
+	}
 
 	if msg.ID == uuid.Nil {
 		return ErrMissingMessageID
@@ -189,6 +193,17 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 			err = errors.Join(ErrUnlockFailed, fmt.Errorf("key=[%s]: %w", key, unlockErr))
 		}
 	}()
+
+	currentStatus, err := c.client.HGet(ctx, key, "status").Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return fmt.Errorf("%w: id=[%s]", ErrStatusNotFound, msg.ID)
+		}
+		return fmt.Errorf("failed to get current status: %w", err)
+	}
+	if currentStatus != msg.OldStatus.String() {
+		return fmt.Errorf("%w: expected=[%s] actual=[%s]", ErrStatusConflict, msg.OldStatus, currentStatus)
+	}
 
 	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
 		newStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())

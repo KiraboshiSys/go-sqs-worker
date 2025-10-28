@@ -62,8 +62,10 @@ import (
 var (
 	validate = validator.New()
 
-	ErrSuccessfullyRetried = errors.New("failed to execute job; retried successfully")
-	ErrRedisNotConfigured  = errors.New("redis is not configured")
+	ErrSuccessfullyRetried      = errors.New("failed to execute job; retried successfully")
+	ErrRedisNotConfigured       = errors.New("redis is not configured")
+	ErrShouldNotProcess         = errors.New("processing job shouldn't be processed")
+	ErrMessageAlreadyProcessing = errors.New("message is already being processed by another worker")
 )
 
 const maxSQSDelaySeconds = 900
@@ -322,12 +324,26 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 
 	msg = msg.Processing()
 
-	if !c.shouldProcess(ctx, msg) {
-		return nonFatalOutput(errors.New("message should not be processed")).withMessage(msg)
+	shouldProcess, currentStatus, statusErr := c.shouldProcess(ctx, msg.ID)
+	if statusErr != nil {
+		return fatalOutput(fmt.Errorf("failed to determine processing eligibility: %w", statusErr))
+	}
+	if !shouldProcess {
+		switch currentStatus {
+		case message.Success, message.Failed:
+			return nonFatalOutput(fmt.Errorf("message already processed with status: %s", currentStatus))
+		case message.Processing:
+			return fatalOutput(ErrMessageAlreadyProcessing)
+		default:
+			return fatalOutput(ErrShouldNotProcess)
+		}
 	}
 
 	ctx, beforeProcessErr := c.beforeProcess(ctx, msg)
 	if beforeProcessErr != nil {
+		if errors.Is(beforeProcessErr, ErrMessageAlreadyProcessing) {
+			return fatalOutput(beforeProcessErr)
+		}
 		return c.retry(ctx, msg, beforeProcessErr)
 	}
 
@@ -362,17 +378,21 @@ func (c *Consumer) GetMessage(ctx context.Context, id uuid.UUID) (message.Messag
 	return c.redis.GetMessage(ctx, id)
 }
 
-// shouldProcess returns true if the message should be processed.
-// If Redis is used, it checks the status of the message in Redis.
-func (c *Consumer) shouldProcess(ctx context.Context, msg message.Message) bool {
+// shouldProcess determines if the message should be processed.
+// It returns a flag indicating whether to process, the current status stored in Redis (if any),
+// and an error if the status could not be retrieved.
+func (c *Consumer) shouldProcess(ctx context.Context, msgID uuid.UUID) (bool, message.Status, error) {
 	if c.cfg.useRedis() {
-		status, err := c.redis.GetStatus(ctx, msg.ID)
+		status, err := c.redis.GetStatus(ctx, msgID)
 		if err != nil {
-			return false
+			if errors.Is(err, redis.ErrStatusNotFound) {
+				return true, "", nil
+			}
+			return false, "", fmt.Errorf("failed to get status from redis: %w", err)
 		}
-		return status.ShouldProcess()
+		return status.ShouldProcess(), status, nil
 	}
-	return true
+	return true, "", nil
 }
 
 // execute executes a job and returns the Output
@@ -463,6 +483,9 @@ func (c *Consumer) calculateBackoff(retries int) int {
 func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) (context.Context, error) {
 	if c.cfg.useRedis() {
 		if err := c.redis.UpdateMessage(ctx, msg); err != nil {
+			if errors.Is(err, redis.ErrStatusConflict) {
+				return ctx, ErrMessageAlreadyProcessing
+			}
 			return ctx, fmt.Errorf("failed to set status before processing: %w", err)
 		}
 	}
@@ -475,13 +498,13 @@ func (c *Consumer) beforeProcess(ctx context.Context, msg message.Message) (cont
 
 func (c *Consumer) afterProcess(ctx context.Context, output Output) (context.Context, error) {
 	if c.cfg.useRedis() && output.Message.ID != uuid.Nil {
-		if output.Message.Status == message.Success {
-			if err := c.redis.DeleteMessage(ctx, output.Message.ID); err != nil {
-				return ctx, fmt.Errorf("failed to delete message after processing: %w", err)
-			}
-		} else {
+		if output.Message.Status != "" {
 			if err := c.redis.UpdateMessage(ctx, output.Message); err != nil {
-				return ctx, fmt.Errorf("failed to set status after processing: %w", err)
+				if errors.Is(err, redis.ErrStatusConflict) && output.Message.Status == message.Success {
+					// another worker already updated this message to success; ignore
+				} else {
+					return ctx, fmt.Errorf("failed to set status after processing: %w", err)
+				}
 			}
 		}
 	}
