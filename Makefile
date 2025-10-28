@@ -21,10 +21,7 @@ build: ## Build the Docker images
 	docker compose build
 
 install: ## Install dependencies
-	go mod tidy
-	go install honnef.co/go/tools/cmd/staticcheck@latest
-	go install go.uber.org/mock/mockgen@latest
-	go install golang.org/x/tools/cmd/stringer@latest
+	go mod download
 
 gen: ## Execute Go generate commands to process source code annotations
 	find ./ -type d -name "mock_*" -exec rm -r {} +
@@ -33,7 +30,7 @@ gen: ## Execute Go generate commands to process source code annotations
 
 lint: ## Run linters (vet and staticcheck)
 	go vet ./...
-	staticcheck ./...
+	go tool staticcheck ./...
 
 test: ## Run tests locally on the host machine
 	go test ./...
