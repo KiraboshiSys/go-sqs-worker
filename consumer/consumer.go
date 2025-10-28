@@ -258,12 +258,6 @@ func (c *Consumer) Do(ctx context.Context) {
 			cancel()
 			return
 		default:
-			// delete message before processing to avoid duplicate processing
-			if err := deleteMessage(consumerCtx); err != nil {
-				cancel()
-				continue
-			}
-
 			output := c.Process(consumerCtx, *m)
 			consumerCtx, afterProcessErr := c.afterProcess(consumerCtx, output)
 			if afterProcessErr != nil {
@@ -271,6 +265,14 @@ func (c *Consumer) Do(ctx context.Context) {
 				cancel()
 				continue
 			}
+
+			if !output.Fatal {
+				if err := deleteMessage(consumerCtx); err != nil {
+					cancel()
+					continue
+				}
+			}
+
 			cancel()
 		}
 	}
