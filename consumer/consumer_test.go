@@ -98,6 +98,7 @@ func TestConsumer_Process(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.NoError(t, got.Error)
 				assert.Equal(t, false, got.Fatal)
+				assert.Equal(t, true, got.ShouldDelete)
 			},
 		},
 		{
@@ -112,6 +113,7 @@ func TestConsumer_Process(t *testing.T) {
 				assert.Empty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to unmarshal message; sent to DLQ successfully: failed to validate message")
 				assert.Equal(t, false, got.Fatal)
+				assert.Equal(t, true, got.ShouldDelete)
 			},
 		},
 		{
@@ -126,6 +128,7 @@ func TestConsumer_Process(t *testing.T) {
 				assert.Empty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to unmarshal message and send to DLQ: failed to enqueue message on sending to DLQ")
 				assert.Equal(t, true, got.Fatal)
+				assert.Equal(t, false, got.ShouldDelete)
 			},
 		},
 		{
@@ -140,6 +143,7 @@ func TestConsumer_Process(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to get job; sent to DLQ successfully")
 				assert.Equal(t, false, got.Fatal)
+				assert.Equal(t, true, got.ShouldDelete)
 			},
 		},
 		{
@@ -154,6 +158,7 @@ func TestConsumer_Process(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to get job and send to DLQ")
 				assert.Equal(t, true, got.Fatal)
+				assert.Equal(t, false, got.ShouldDelete)
 			},
 		},
 	}
@@ -234,9 +239,10 @@ func TestConsumer_ProcessMessage_skipsWhenStatusProcessingInRedis(t *testing.T) 
 
 	got := sut.ProcessMessage(ctx, msg)
 
-	assert.True(t, got.Fatal)
+	assert.False(t, got.Fatal)
 	assert.ErrorIs(t, got.Error, ErrMessageAlreadyProcessing)
 	assert.Equal(t, uuid.Nil, got.Message.ID)
+	assert.False(t, got.ShouldDelete)
 }
 
 func TestConsumer_ProcessMessage_skipsWhenStatusSuccessInRedis(t *testing.T) {
@@ -287,6 +293,7 @@ func TestConsumer_ProcessMessage_skipsWhenStatusSuccessInRedis(t *testing.T) {
 	assert.False(t, got.Fatal)
 	assert.ErrorContains(t, got.Error, "message already processed")
 	assert.Equal(t, uuid.Nil, got.Message.ID)
+	assert.True(t, got.ShouldDelete)
 }
 
 func TestConsumer_doRetry_usesSchedulerWhenDelayExceedsLimit(t *testing.T) {
@@ -389,6 +396,7 @@ func TestConsumer_execute(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.NoError(t, got.Error)
 				assert.Equal(t, false, got.Fatal)
+				assert.Equal(t, true, got.ShouldDelete)
 			},
 		},
 		{
@@ -405,6 +413,7 @@ func TestConsumer_execute(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to execute job; retried successfully")
 				assert.Equal(t, false, got.Fatal)
+				assert.Equal(t, true, got.ShouldDelete)
 			},
 		},
 		{
@@ -422,6 +431,7 @@ func TestConsumer_execute(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to execute job and retry; sent to DLQ successfully")
 				assert.Equal(t, false, got.Fatal)
+				assert.Equal(t, true, got.ShouldDelete)
 			},
 		},
 		{
@@ -439,6 +449,7 @@ func TestConsumer_execute(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "failed to execute job and retry and send to DLQ")
 				assert.Equal(t, true, got.Fatal)
+				assert.Equal(t, false, got.ShouldDelete)
 			},
 		},
 		{
@@ -458,6 +469,7 @@ func TestConsumer_execute(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "max retry attempts exceeded; sent to DLQ successfully")
 				assert.Equal(t, false, got.Fatal)
+				assert.Equal(t, true, got.ShouldDelete)
 			},
 		},
 		{
@@ -477,6 +489,7 @@ func TestConsumer_execute(t *testing.T) {
 				assert.NotEmpty(t, got.Message)
 				assert.ErrorContains(t, got.Error, "max retry attempts reached; failed to send to DLQ")
 				assert.Equal(t, true, got.Fatal)
+				assert.Equal(t, false, got.ShouldDelete)
 			},
 		},
 	}

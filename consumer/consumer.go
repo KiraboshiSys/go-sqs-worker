@@ -268,7 +268,7 @@ func (c *Consumer) Do(ctx context.Context) {
 				continue
 			}
 
-			if !output.Fatal {
+			if output.ShouldDelete {
 				if err := deleteMessage(consumerCtx); err != nil {
 					cancel()
 					continue
@@ -333,16 +333,16 @@ func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (out
 		case message.Success, message.Failed:
 			return nonFatalOutput(fmt.Errorf("message already processed with status: %s", currentStatus))
 		case message.Processing:
-			return fatalOutput(ErrMessageAlreadyProcessing)
+			return nonFatalOutput(ErrMessageAlreadyProcessing).withoutDeleting()
 		default:
-			return fatalOutput(ErrShouldNotProcess)
+			return nonFatalOutput(ErrShouldNotProcess).withoutDeleting()
 		}
 	}
 
 	ctx, beforeProcessErr := c.beforeProcess(ctx, msg)
 	if beforeProcessErr != nil {
 		if errors.Is(beforeProcessErr, ErrMessageAlreadyProcessing) {
-			return fatalOutput(beforeProcessErr)
+			return nonFatalOutput(beforeProcessErr).withoutDeleting()
 		}
 		return c.retry(ctx, msg, beforeProcessErr)
 	}
@@ -413,6 +413,8 @@ func (c *Consumer) execute(ctx context.Context, j job.Job, msg message.Message) 
 	}
 	return Output{
 		Message: msg.Success(),
+		// Successful execution should acknowledge the message.
+		ShouldDelete: true,
 	}
 }
 

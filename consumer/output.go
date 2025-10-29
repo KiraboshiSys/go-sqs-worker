@@ -13,6 +13,9 @@ type Output struct {
 	// Indicates if the error is fatal.
 	// A fatal error means the message was not processed successfully and failed to enqueue to the dead letter queue.
 	Fatal bool
+	// ShouldDelete indicates whether the message should be deleted from the queue.
+	// When set to true, the consumer will acknowledge the message and remove it from the queue.
+	ShouldDelete bool
 }
 
 // FatalError returns the error if the output is fatal, otherwise nil.
@@ -39,9 +42,15 @@ func (o Output) withMessage(m message.Message) Output {
 	return o
 }
 
+// withoutDeleting sets the ShouldDelete to false.
+func (o Output) withoutDeleting() Output {
+	o.ShouldDelete = false
+	return o
+}
+
 // nonFatalOutput creates an Output with a non-fatal error.
 func nonFatalOutput(err error) Output {
-	return Output{Error: err}
+	return Output{Error: err, ShouldDelete: true}
 }
 
 // fatalOutput creates an Output with a fatal error.
