@@ -522,7 +522,7 @@ func parse(ctx context.Context, s string) (message.Message, error) {
 		return message.Message{}, fmt.Errorf("failed to unmarshalling message: %w", err)
 	}
 	if err := validate.StructCtx(ctx, msg); err != nil {
-		return message.Message{}, fmt.Errorf("failed to validate message: %s", err)
+		return message.Message{}, fmt.Errorf("failed to validate message: %w", err)
 	}
 	return msg, nil
 }
