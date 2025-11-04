@@ -44,6 +44,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"runtime/debug"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/scheduler"
@@ -69,6 +70,26 @@ var (
 )
 
 const maxSQSDelaySeconds = 900
+
+func fatalPanicOutput(ctx context.Context, recovered any) Output {
+	stack := debug.Stack()
+	if messageID, err := contexts.MessageID(ctx); err == nil && messageID != "" {
+		return fatalOutput(fmt.Errorf(
+			"panic occurred while processing message (id=%s): %v (type %T)\n%s",
+			messageID,
+			recovered,
+			recovered,
+			stack,
+		))
+	}
+
+	return fatalOutput(fmt.Errorf(
+		"panic occurred while processing message: %v (type %T)\n%s",
+		recovered,
+		recovered,
+		stack,
+	))
+}
 
 // BeforeProcessFunc is a function that is executed before processing a message.
 type BeforeProcessFunc func(ctx context.Context, msg message.Message) (context.Context, error)
@@ -289,7 +310,7 @@ func (c *Consumer) Do(ctx context.Context) {
 func (c *Consumer) Process(ctx context.Context, s string) (output Output) {
 	defer func() {
 		if r := recover(); r != nil {
-			output = fatalOutput(fmt.Errorf("panic occurred while processing message: %v", r))
+			output = fatalPanicOutput(ctx, r)
 		}
 	}()
 
@@ -318,7 +339,7 @@ func (c *Consumer) Process(ctx context.Context, s string) (output Output) {
 func (c *Consumer) ProcessMessage(ctx context.Context, msg message.Message) (output Output) {
 	defer func() {
 		if r := recover(); r != nil {
-			output = fatalOutput(fmt.Errorf("panic occurred while processing message: %v", r))
+			output = fatalPanicOutput(ctx, r).withMessage(msg)
 		}
 	}()
 
