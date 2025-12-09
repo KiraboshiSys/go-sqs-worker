@@ -8,11 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mickamy/go-sqs-worker/message"
-	"github.com/mickamy/go-sqs-worker/producer"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/producer"
 
-	"github.com/mickamy/go-sqs-worker-example/internal/job"
-	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
+	"github.com/KiraboshiSys/go-sqs-worker-example/internal/job"
+	"github.com/KiraboshiSys/go-sqs-worker-example/internal/lib/aws"
 )
 
 func main() {

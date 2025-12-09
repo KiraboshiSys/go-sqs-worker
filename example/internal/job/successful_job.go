@@ -3,7 +3,7 @@ package job
 import (
 	"context"
 
-	"github.com/mickamy/go-sqs-worker/job"
+	"github.com/KiraboshiSys/go-sqs-worker/job"
 )
 
 type SuccessfulJobPayload struct {
