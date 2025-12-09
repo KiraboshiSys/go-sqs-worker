@@ -1,3 +1,8 @@
+# Fork Notice
+
+- This repository is a fork of `github.com/mickamy/go-sqs-worker`.
+- Module path has been changed to `github.com/KiraboshiSys/go-sqs-worker` for long-term internal use.
+
 # go-sqs-worker
 
 `go-sqs-worker` is a Go library designed to manage asynchronous jobs using AWS SQS. It provides a simple, scalable way
@@ -19,7 +24,7 @@ to produce and consume tasks, making it ideal for background job processing.
 Add the library to your project using `go get`:
 
 ```bash
-go get github.com/mickamy/go-sqs-worker
+go get github.com/KiraboshiSys/go-sqs-worker
 ```
 
 ## Usage
@@ -35,11 +40,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mickamy/go-sqs-worker/producer"
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/producer"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 
-	"github.com/mickamy/go-sqs-worker-example/internal/job"
-	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
+	"github.com/KiraboshiSys/go-sqs-worker-example/internal/job"
+	"github.com/KiraboshiSys/go-sqs-worker-example/internal/lib/aws"
 )
 
 func main() {
@@ -81,8 +86,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
-	"github.com/mickamy/go-sqs-worker/consumer"
+	"github.com/KiraboshiSys/go-sqs-worker-example/internal/lib/aws"
+	"github.com/KiraboshiSys/go-sqs-worker/consumer"
 )
 
 func main() {
