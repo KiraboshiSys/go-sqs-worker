@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/scheduler"
 	"github.com/aws/aws-sdk-go-v2/service/scheduler/types"
 
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 )
 
 //go:generate mockgen -source=$GOFILE -destination=./mock_$GOPACKAGE/mock_$GOFILE -package=mock_$GOPACKAGE

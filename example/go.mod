@@ -1,8 +1,8 @@
-module github.com/mickamy/go-sqs-worker-example
+module github.com/KiraboshiSys/go-sqs-worker-example
 
 go 1.24.0
 
-replace github.com/mickamy/go-sqs-worker v0.1.0 => ../
+replace github.com/KiraboshiSys/go-sqs-worker v0.1.0 => ../
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.39.4
@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.48
 	github.com/aws/aws-sdk-go-v2/service/scheduler v1.17.7
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.11
-	github.com/mickamy/go-sqs-worker v0.1.0
+	github.com/KiraboshiSys/go-sqs-worker v0.1.0
 )
 
 require (

@@ -1,7 +1,7 @@
 package consumer
 
 import (
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 )
 
 // Output represents the result of processing a message.

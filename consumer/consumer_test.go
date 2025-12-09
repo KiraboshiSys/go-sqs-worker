@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/mickamy/go-sqs-worker/internal/redis"
-	"github.com/mickamy/go-sqs-worker/internal/sqs/mock_sqs"
-	"github.com/mickamy/go-sqs-worker/job"
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/internal/redis"
+	"github.com/KiraboshiSys/go-sqs-worker/internal/sqs/mock_sqs"
+	"github.com/KiraboshiSys/go-sqs-worker/job"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 )
 
 type jobType string

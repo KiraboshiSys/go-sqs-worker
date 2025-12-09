@@ -1,4 +1,4 @@
-module github.com/mickamy/go-sqs-worker
+module github.com/KiraboshiSys/go-sqs-worker
 
 go 1.24.0
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/mickamy/go-sqs-worker/job"
+	"github.com/KiraboshiSys/go-sqs-worker/job"
 )
 
 type FailingJobPayload struct {

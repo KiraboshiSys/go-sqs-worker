@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 )
 
 const (
