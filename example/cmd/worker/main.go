@@ -9,12 +9,12 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/mickamy/go-sqs-worker/consumer"
-	jobLib "github.com/mickamy/go-sqs-worker/job"
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/consumer"
+	jobLib "github.com/KiraboshiSys/go-sqs-worker/job"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 
-	"github.com/mickamy/go-sqs-worker-example/internal/job"
-	"github.com/mickamy/go-sqs-worker-example/internal/lib/aws"
+	"github.com/KiraboshiSys/go-sqs-worker-example/internal/job"
+	"github.com/KiraboshiSys/go-sqs-worker-example/internal/lib/aws"
 )
 
 func main() {

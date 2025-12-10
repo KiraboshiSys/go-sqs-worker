@@ -44,10 +44,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/go-playground/validator/v10"
 
-	"github.com/mickamy/go-sqs-worker/internal/redis"
-	internalScheduler "github.com/mickamy/go-sqs-worker/internal/scheduler"
-	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/internal/redis"
+	internalScheduler "github.com/KiraboshiSys/go-sqs-worker/internal/scheduler"
+	internalSQS "github.com/KiraboshiSys/go-sqs-worker/internal/sqs"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 )
 
 // BeforeProduceFunc is a function that is called before a message is produced

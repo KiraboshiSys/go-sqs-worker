@@ -52,12 +52,12 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
-	"github.com/mickamy/go-sqs-worker/contexts"
-	"github.com/mickamy/go-sqs-worker/internal/redis"
-	internalScheduler "github.com/mickamy/go-sqs-worker/internal/scheduler"
-	internalSQS "github.com/mickamy/go-sqs-worker/internal/sqs"
-	"github.com/mickamy/go-sqs-worker/job"
-	"github.com/mickamy/go-sqs-worker/message"
+	"github.com/KiraboshiSys/go-sqs-worker/contexts"
+	"github.com/KiraboshiSys/go-sqs-worker/internal/redis"
+	internalScheduler "github.com/KiraboshiSys/go-sqs-worker/internal/scheduler"
+	internalSQS "github.com/KiraboshiSys/go-sqs-worker/internal/sqs"
+	"github.com/KiraboshiSys/go-sqs-worker/job"
+	"github.com/KiraboshiSys/go-sqs-worker/message"
 )
 
 var (

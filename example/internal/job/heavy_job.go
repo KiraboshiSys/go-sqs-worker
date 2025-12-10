@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/mickamy/go-sqs-worker/job"
+	"github.com/KiraboshiSys/go-sqs-worker/job"
 )
 
 type HeavyJobPayload struct {
