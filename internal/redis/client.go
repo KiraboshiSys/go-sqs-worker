@@ -103,7 +103,7 @@ func New(cfg Config) (*Client, error) {
 func (c *Client) GetStatus(ctx context.Context, id uuid.UUID) (message.Status, error) {
 	key := fmt.Sprintf("%s:%s", _statusesKey, id.String())
 
-	keys, err := c.client.Keys(ctx, key+":*").Result()
+	keys, err := c.scanKeys(ctx, key+":*")
 	if err != nil {
 		return "", fmt.Errorf("failed to get keys for pattern [%s]: %w", key+":*", err)
 	}
@@ -251,7 +251,7 @@ func (c *Client) DeleteMessage(ctx context.Context, id uuid.UUID) (err error) {
 
 	// get all status keys for the message
 	statusPattern := fmt.Sprintf("%s:%s:*", _statusesKey, id.String())
-	statusKeys, err := c.client.Keys(ctx, statusPattern).Result()
+	statusKeys, err := c.scanKeys(ctx, statusPattern)
 	if err != nil {
 		return fmt.Errorf("failed to get status keys: %w", err)
 	}
@@ -281,7 +281,7 @@ func (c *Client) DeleteMessage(ctx context.Context, id uuid.UUID) (err error) {
 
 func (c *Client) ListMessageIDs(ctx context.Context, status message.Status) ([]uuid.UUID, error) {
 	pattern := fmt.Sprintf("%s:*:%s", _statusesKey, status.String())
-	keys, err := c.client.Keys(ctx, pattern).Result()
+	keys, err := c.scanKeys(ctx, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get keys for pattern [%s]: %w", pattern, err)
 	}
@@ -378,6 +378,24 @@ func (c *Client) unlockKey(ctx context.Context, key, lockValue string) error {
 		return fmt.Errorf("lock value mismatch for key: %s", key)
 	}
 	return nil
+}
+
+func (c *Client) scanKeys(ctx context.Context, pattern string) ([]string, error) {
+	var keys []string
+	var cursor uint64
+	for {
+		var batch []string
+		var err error
+		batch, cursor, err = c.client.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, batch...)
+		if cursor == 0 {
+			break
+		}
+	}
+	return keys, nil
 }
 
 func messageToMap(msg message.Message) map[string]string {
