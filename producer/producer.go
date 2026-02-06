@@ -147,7 +147,7 @@ func (p *Producer) Do(ctx context.Context, msg message.Message) error {
 
 	bytes, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("failed to marshal message: %s", err)
+		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
 	if err := p.beforeProduce(ctx, msg); err != nil {
