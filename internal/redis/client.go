@@ -360,20 +360,23 @@ func (c *Client) lockKey(ctx context.Context, key string, ttl time.Duration) (st
 	return lockValue, nil
 }
 
+var unlockScript = redis.NewScript(`
+if redis.call("get", KEYS[1]) == ARGV[1] then
+	return redis.call("del", KEYS[1])
+else
+	return 0
+end
+`)
+
 func (c *Client) unlockKey(ctx context.Context, key, lockValue string) error {
 	lockKey := fmt.Sprintf("%s:%s", _locks, key)
-	currentValue, err := c.client.Get(ctx, lockKey).Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return fmt.Errorf("failed to get lock value: %w", err)
-	}
-	if currentValue != lockValue {
-		return fmt.Errorf("lock value mismatch for key: %s", key)
-	}
-
-	if err := c.client.Del(ctx, lockKey).Err(); err != nil {
+	result, err := unlockScript.Run(ctx, c.client, []string{lockKey}, lockValue).Int64()
+	if err != nil {
 		return fmt.Errorf("failed to release lock: %w", err)
 	}
-
+	if result == 0 {
+		return fmt.Errorf("lock value mismatch for key: %s", key)
+	}
 	return nil
 }
 
