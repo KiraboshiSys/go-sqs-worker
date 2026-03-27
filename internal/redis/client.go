@@ -220,14 +220,14 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 			}
 		}
 
+		if err := pipeliner.HSet(ctx, key, "status", msg.Status.String(), "retry_count", msg.RetryCount, "updated_at", msg.UpdatedAt.Format(timeLayout)).Err(); err != nil {
+			return fmt.Errorf("failed to update status: %w", err)
+		}
+
 		// Deletes the key after successMessageExpiresIn when the job succeeds.
 		if msg.Status == message.Success {
 			if err := pipeliner.Expire(ctx, key, successMessageExpiresIn).Err(); err != nil {
 				return fmt.Errorf("failed to set ttl on message: %w", err)
-			}
-		} else {
-			if err := pipeliner.HSet(ctx, key, "status", msg.Status.String(), "retry_count", msg.RetryCount, "updated_at", msg.UpdatedAt.Format(timeLayout)).Err(); err != nil {
-				return fmt.Errorf("failed to update status: %w", err)
 			}
 		}
 
