@@ -21,6 +21,8 @@ const (
 	_statusesKey = "gsw:statuses"
 	_locks       = "gsw:locks"
 	timeLayout   = time.RFC3339
+
+	successMessageExpiresIn = 7 * 24 * time.Hour
 )
 
 var (
@@ -144,7 +146,7 @@ func (c *Client) SetMessage(ctx context.Context, msg message.Message) (err error
 
 	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
 		newStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
-		if err := pipeliner.Set(ctx, newStatusKey, "", 0).Err(); err != nil {
+		if err := pipeliner.Set(ctx, newStatusKey, "", setTTL(msg.Status)).Err(); err != nil {
 			return fmt.Errorf("failed to set new status: %w", err)
 		}
 
@@ -207,7 +209,7 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 
 	_, err = c.client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
 		newStatusKey := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), msg.Status.String())
-		if err := pipeliner.Set(ctx, newStatusKey, "", 0).Err(); err != nil {
+		if err := pipeliner.Set(ctx, newStatusKey, "", setTTL(msg.Status)).Err(); err != nil {
 			return fmt.Errorf("failed to set new status: %w", err)
 		}
 
@@ -220,6 +222,13 @@ func (c *Client) UpdateMessage(ctx context.Context, msg message.Message) (err er
 
 		if err := pipeliner.HSet(ctx, key, "status", msg.Status.String(), "retry_count", msg.RetryCount, "updated_at", msg.UpdatedAt.Format(timeLayout)).Err(); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
+		}
+
+		// Deletes the key after successMessageExpiresIn when the job succeeds.
+		if msg.Status == message.Success {
+			if err := pipeliner.Expire(ctx, key, successMessageExpiresIn).Err(); err != nil {
+				return fmt.Errorf("failed to set ttl on message: %w", err)
+			}
 		}
 
 		return nil
@@ -396,6 +405,18 @@ func (c *Client) scanKeys(ctx context.Context, pattern string) ([]string, error)
 		}
 	}
 	return keys, nil
+}
+
+// setTTL sets the Redis TTL when a job succeeds
+func setTTL(status message.Status) time.Duration {
+	var ttl time.Duration
+	if status == message.Success {
+		ttl = successMessageExpiresIn
+	} else {
+		ttl = 0
+	}
+
+	return ttl
 }
 
 func messageToMap(msg message.Message) map[string]string {

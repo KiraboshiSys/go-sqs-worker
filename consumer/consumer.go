@@ -288,6 +288,7 @@ func (c *Consumer) Do(ctx context.Context) {
 		}
 
 		if output.ShouldDelete {
+			// deleteMessage is a function to delete the message from SQS
 			if err := deleteMessage(processCtx); err != nil {
 				cancel()
 				continue
