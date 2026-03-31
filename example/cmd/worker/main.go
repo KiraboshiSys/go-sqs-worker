@@ -70,7 +70,6 @@ func main() {
 	if err != nil {
 		fmt.Println("failed to create consumer", "error", err)
 		os.Exit(1)
-		return
 	}
 
 	workersCount := runtime.GOMAXPROCS(0)

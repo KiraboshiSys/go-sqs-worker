@@ -259,46 +259,43 @@ func newConsumer(cfg Config, client internalSQS.Client, scheduler internalSchedu
 // If the maximum number of retries is reached, the message will be sent to the dead letter queue (DLQ) if configured.
 func (c *Consumer) Do(ctx context.Context) {
 	for {
-		// create a new context for each message to avoid context cancellation
-		consumerCtx, cancel := context.WithTimeout(context.Background(), time.Duration(c.cfg.WaitTimeSeconds+c.cfg.TimeoutSeconds)*time.Second)
-
-		m, deleteMessage, err := c.sqsClient.Dequeue(consumerCtx, c.cfg.WorkerQueueURL, c.cfg.WaitTimeSeconds)
+		// Use the parent ctx for dequeue so that long polling is interrupted immediately on shutdown.
+		// No message is held at this point, so it is safe to cancel.
+		m, deleteMessage, err := c.sqsClient.Dequeue(ctx, c.cfg.WorkerQueueURL, c.cfg.WaitTimeSeconds)
 		if err != nil {
-			// continue processing if dequeue failed
-			cancel()
+			if ctx.Err() != nil {
+				return
+			}
 			continue
 		}
 		if m == nil {
-			// continue processing if message is empty
+			if ctx.Err() != nil {
+				return
+			}
+			continue
+		}
+
+		// Once a message is dequeued, use an independent context for processing
+		// so the message is fully processed even during shutdown.
+		processCtx, cancel := context.WithTimeout(context.Background(), time.Duration(c.cfg.TimeoutSeconds)*time.Second)
+
+		output := c.Process(processCtx, *m)
+		processCtx, afterProcessErr := c.afterProcess(processCtx, output)
+		if afterProcessErr != nil {
+			c.retry(processCtx, output.Message, afterProcessErr)
 			cancel()
 			continue
 		}
 
-		select {
-		case <-ctx.Done():
-			// stop processing if context is canceled
-			// do not delete message to allow other consumers to process it
-			cancel()
-			return
-		default:
-			output := c.Process(consumerCtx, *m)
-			consumerCtx, afterProcessErr := c.afterProcess(consumerCtx, output)
-			if afterProcessErr != nil {
-				c.retry(consumerCtx, output.Message, afterProcessErr)
+		if output.ShouldDelete {
+			// deleteMessage is a function to delete the message from SQS
+			if err := deleteMessage(processCtx); err != nil {
 				cancel()
 				continue
 			}
-
-			if output.ShouldDelete {
-				// deleteMessage is a function to delete the message from SQS
-				if err := deleteMessage(consumerCtx); err != nil {
-					cancel()
-					continue
-				}
-			}
-
-			cancel()
 		}
+
+		cancel()
 	}
 }
 
