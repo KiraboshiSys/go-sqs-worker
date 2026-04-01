@@ -363,6 +363,9 @@ func (c *Client) lockKey(ctx context.Context, key string, ttl time.Duration) (st
 		TTL:  ttl,
 	}).Result()
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", errors.Join(ErrLockHeld, fmt.Errorf("key=[%s]", key))
+		}
 		return "", fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	if result != "OK" {
