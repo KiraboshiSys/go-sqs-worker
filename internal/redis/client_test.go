@@ -20,7 +20,7 @@ type jobType string
 const (
 	testJobType             jobType = "TestJob"
 	successMessageExpiresIn         = 7 * 24 * time.Hour
-	_messagesKey                    = "gsw:messages"
+	_statusesKey                    = "gsw:statuses"
 )
 
 func caller() string {
@@ -47,7 +47,7 @@ func TestClient_UpdateMessage(t *testing.T) {
 			},
 			assert: func(t *testing.T, ctx context.Context, redis *miniredis.Miniredis, msg message.Message, err error) {
 				assert.NoError(t, err)
-				key := fmt.Sprintf("%s:%s:%s", _messagesKey, msg.ID.String(), message.Processing)
+				key := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), message.Processing)
 				require.True(t, redis.Exists(key))
 			},
 		},
@@ -58,7 +58,7 @@ func TestClient_UpdateMessage(t *testing.T) {
 			},
 			assert: func(t *testing.T, ctx context.Context, redis *miniredis.Miniredis, msg message.Message, err error) {
 				assert.NoError(t, err)
-				key := fmt.Sprintf("%s:%s:%s", _messagesKey, msg.ID.String(), message.Success)
+				key := fmt.Sprintf("%s:%s:%s", _statusesKey, msg.ID.String(), message.Success)
 				require.True(t, redis.Exists(key))
 				require.Equal(t, successMessageExpiresIn, redis.TTL(key))
 			},
