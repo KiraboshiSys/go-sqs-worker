@@ -358,11 +358,14 @@ func (c *Client) lockKey(ctx context.Context, key string, ttl time.Duration) (st
 	lockValue := uuid.New().String() // unique identifier for the lock
 
 	// attempt to acquire the lock
-	result, err := c.client.SetNX(ctx, lockKey, lockValue, ttl).Result()
+	result, err := c.client.SetArgs(ctx, lockKey, lockValue, redis.SetArgs{
+		Mode: "NX",
+		TTL:  ttl,
+	}).Result()
 	if err != nil {
 		return "", fmt.Errorf("failed to acquire lock: %w", err)
 	}
-	if !result {
+	if result != "OK" {
 		return "", errors.Join(ErrLockHeld, fmt.Errorf("key=[%s]", key))
 	}
 
